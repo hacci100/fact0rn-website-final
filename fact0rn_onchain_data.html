@@ -89,438 +89,678 @@
                 </div>
             </div>
 
+            <!-- Emissions Chart Section -->
+            <div class="chart-container" style="background: rgba(0, 0, 0, 0.6); border: 1px solid #FF9900; border-radius: 10px; padding: 1.5rem; margin: 2rem 0; box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); text-align: center;">
+                <h3 style="color: #FF9900; font-family: 'Orbitron', sans-serif; margin-bottom: 1rem;">Fact0rn Daily Emissions</h3>
+                <div id="emissions-loading-message">Loading emissions data...</div>
+                <div id="emissions-error-details" style="display: none; color: #ff6b6b; background: rgba(255, 107, 107, 0.1); border: 1px solid #ff6b6b; border-radius: 5px; padding: 1rem; margin: 1rem 0;"></div>
+                <button id="emissions-retry-button" style="display: none; background: #FF9900; color: #000; border: none; border-radius: 5px; padding: 0.75rem 1.5rem; font-weight: bold; cursor: pointer; margin: 0.5rem;">Retry</button>
+                <div style="position: relative; height: 60vh; margin-top: 1rem;">
+                    <canvas id="emissionsChart"></canvas>
+                </div>
+            </div>
+
             <script>
-                let chart = null;
-                let rangeChart = null;
-                let allData = []; // Store all data for filtering
-                
-                // Function to show error details
-                function showError(message, details) {
-                    const errorElement = document.getElementById('error-details');
-                    const loadingElement = document.getElementById('loading-message');
-                    const retryButton = document.getElementById('retry-button');
+                (function() {
+                    let chart = null;
+                    let rangeChart = null;
+                    let allData = []; // Store all data for filtering
                     
-                    loadingElement.textContent = message;
-                    
-                    if (details) {
-                        errorElement.textContent = `Error details: ${details}`;
-                        errorElement.style.display = 'block';
+                    // Function to show error details
+                    function showError(message, details) {
+                        const errorElement = document.getElementById('error-details');
+                        const loadingElement = document.getElementById('loading-message');
+                        const retryButton = document.getElementById('retry-button');
+                        
+                        loadingElement.textContent = message;
+                        
+                        if (details) {
+                            errorElement.textContent = `Error details: ${details}`;
+                            errorElement.style.display = 'block';
+                        }
+                        
+                        retryButton.style.display = 'inline-block';
                     }
                     
-                    retryButton.style.display = 'inline-block';
-                }
-                
-                // Function to clear previous errors and reset UI
-                function resetUI() {
-                    const errorElement = document.getElementById('error-details');
-                    const loadingElement = document.getElementById('loading-message');
-                    const retryButton = document.getElementById('retry-button');
-                    
-                    loadingElement.textContent = 'Loading blockchain data...';
-                    loadingElement.style.display = 'block';
-                    errorElement.style.display = 'none';
-                    retryButton.style.display = 'none';
-                    
-                    // Destroy previous charts if they exist
-                    if (chart) {
-                        chart.destroy();
-                        chart = null;
+                    // Function to clear previous errors and reset UI
+                    function resetUI() {
+                        const errorElement = document.getElementById('error-details');
+                        const loadingElement = document.getElementById('loading-message');
+                        const retryButton = document.getElementById('retry-button');
+                        
+                        loadingElement.textContent = 'Loading blockchain data...';
+                        loadingElement.style.display = 'block';
+                        errorElement.style.display = 'none';
+                        retryButton.style.display = 'none';
+                        
+                        // Destroy previous charts if they exist
+                        if (chart) {
+                            chart.destroy();
+                            chart = null;
+                        }
+                        
+                        if (rangeChart) {
+                            rangeChart.destroy();
+                            rangeChart = null;
+                        }
                     }
                     
-                    if (rangeChart) {
-                        rangeChart.destroy();
-                        rangeChart = null;
-                    }
-                }
-                
-                // Use a proxy to avoid CORS issues (if needed)
-                function getApiUrl(params = {}) {
-                    // Base URL
-                    const baseUrl = 'https://fact0rn-data-d59a93edb52f.herokuapp.com/api/blocks';
-                    
-                    // Build query string from params
-                    const queryParams = new URLSearchParams();
-                    
-                    // Add all params to query string
-                    Object.keys(params).forEach(key => {
-                        if (params[key] !== null && params[key] !== undefined && params[key] !== 'max') {
-                            queryParams.append(key, params[key]);
-                        }
-                    });
-                    
-                    // Return full URL with query string
-                    return `${baseUrl}?${queryParams.toString()}`;
-                }
-                
-                // Format date for display
-                function formatDate(timestamp) {
-                    const date = new Date(timestamp * 1000);
-                    return date.toLocaleDateString('en-US', { 
-                        year: 'numeric', 
-                        month: 'short', 
-                        day: 'numeric' 
-                    });
-                }
-                
-                // Function to fetch data from your API
-                async function fetchBlockchainData(params = {}) {
-                    resetUI();
-                    
-                    try {
-                        console.log('Fetching data from API with params:', params);
+                    // Use a proxy to avoid CORS issues (if needed)
+                    function getApiUrl(params = {}) {
+                        // Base URL
+                        const baseUrl = 'https://fact0rn-data-d59a93edb52f.herokuapp.com/api/blocks';
                         
-                        // If max range is selected, use a large limit
-                        if (params.limit === 'max') {
-                            params.limit = 10000; // Very large number to get all blocks
-                        }
+                        // Build query string from params
+                        const queryParams = new URLSearchParams();
                         
-                        const apiUrl = getApiUrl(params);
-                        console.log('API URL:', apiUrl);
-                        
-                        const response = await fetch(apiUrl, {
-                            method: 'GET',
-                            headers: {
-                                'Accept': 'application/json'
-                            },
-                            cache: 'no-cache'
-                        });
-                        
-                        console.log('Response status:', response.status);
-                        
-                        if (!response.ok) {
-                            throw new Error(`API responded with status ${response.status}`);
-                        }
-                        
-                        const text = await response.text();
-                        console.log('Response text (first 100 chars):', text.substring(0, 100));
-                        
-                        let data;
-                        try {
-                            data = JSON.parse(text);
-                        } catch (parseError) {
-                            console.error('JSON parse error:', parseError);
-                            throw new Error(`Failed to parse JSON: ${parseError.message}`);
-                        }
-                        
-                        console.log('Parsed data:', data);
-                        
-                        // Hide loading message
-                        document.getElementById('loading-message').style.display = 'none';
-                        
-                        if (!data || !Array.isArray(data) || data.length === 0) {
-                            showError('No blockchain data available.', 'API returned empty or invalid data');
-                            return;
-                        }
-                        
-                        // Validate data format
-                        const firstItem = data[0];
-                        if (!firstItem.block_number || !firstItem.block_time_seconds) {
-                            showError('Invalid data format.', 'Data does not contain expected fields');
-                            console.error('Expected fields missing from data:', firstItem);
-                            return;
-                        }
-                        
-                        // Store all data for filtering
-                        allData = data;
-                        
-                        // Sort data by block number (ascending)
-                        const sortedData = [...data].sort((a, b) => a.block_number - b.block_number);
-                        
-                        const blockNumbers = sortedData.map(block => block.block_number);
-                        const blockTimes = sortedData.map(block => block.block_time_seconds);
-                        const blockDates = sortedData.map(block => formatDate(block.timestamp));
-                        
-                        // Extract moving average data
-                        const movingAverages = sortedData.map(block => block.moving_avg_100);
-                        
-                        // Create main chart
-                        const ctx = document.getElementById('blockTimeChart').getContext('2d');
-                        chart = new Chart(ctx, {
-                            type: 'line',
-                            data: {
-                                labels: blockNumbers,
-                                datasets: [
-                                    {
-                                        label: 'Block Duration',
-                                        data: blockTimes,
-                                        backgroundColor: 'rgba(0, 0, 0, 0)',
-                                        borderColor: 'rgba(0, 0, 255, 1)',
-                                        borderWidth: 2,
-                                        pointBackgroundColor: 'rgba(0, 0, 255, 1)',
-                                        pointRadius: 1,
-                                        tension: 0.1,
-                                        yAxisID: 'y',
-                                        type: 'bar'
-                                    },
-                                    {
-                                        label: 'Moving AVG',
-                                        data: movingAverages,
-                                        backgroundColor: 'rgba(255, 255, 0, 0.2)',
-                                        borderColor: 'rgba(255, 255, 0, 1)',
-                                        borderWidth: 2,
-                                        pointBackgroundColor: 'rgba(255, 255, 0, 1)',
-                                        pointRadius: 0,
-                                        tension: 0.1,
-                                        yAxisID: 'y',
-                                        type: 'line'
-                                    }
-                                ]
-                            },
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                plugins: {
-                                    title: {
-                                        display: true,
-                                        text: 'Fact0rn Block Time Analysis',
-                                        color: '#f8f8f8',
-                                        font: {
-                                            family: 'Orbitron',
-                                            size: 16
-                                        }
-                                    },
-                                    legend: {
-                                        labels: {
-                                            color: '#f8f8f8',
-                                            font: {
-                                                family: 'Orbitron'
-                                            }
-                                        }
-                                    },
-                                    tooltip: {
-                                        callbacks: {
-                                            title: function(tooltipItems) {
-                                                return `Block #${tooltipItems[0].label}`;
-                                            },
-                                            label: function(context) {
-                                                if (context.dataset.label === 'Block Duration') {
-                                                    return `Block Time: ${context.raw} seconds`;
-                                                } else if (context.dataset.label === 'Moving AVG') {
-                                                    return `100-Block Moving Avg: ${context.raw} seconds`;
-                                                }
-                                                return `${context.dataset.label}: ${context.raw}`;
-                                            },
-                                            afterLabel: function(context) {
-                                                if (context.dataset.label === 'Block Duration') {
-                                                    const blockIndex = context.dataIndex;
-                                                    const block = sortedData[blockIndex];
-                                                    return `Date: ${block.datetime}`;
-                                                }
-                                                return '';
-                                            }
-                                        }
-                                    },
-                                    zoom: {
-                                        pan: {
-                                            enabled: true,
-                                            mode: 'x'
-                                        },
-                                        zoom: {
-                                            wheel: {
-                                                enabled: true,
-                                            },
-                                            pinch: {
-                                                enabled: true
-                                            },
-                                            mode: 'x'
-                                        }
-                                    }
-                                },
-                                scales: {
-                                    x: {
-                                        title: {
-                                            display: true,
-                                            text: 'Block Number',
-                                            color: '#f8f8f8',
-                                            font: {
-                                                family: 'Orbitron'
-                                            }
-                                        },
-                                        ticks: {
-                                            color: '#f8f8f8',
-                                            maxRotation: 45,
-                                            minRotation: 45,
-                                            callback: function(value, index, values) {
-                                                // Show fewer labels to avoid crowding
-                                                if (index % 5 === 0) {
-                                                    const blockIndex = blockNumbers.indexOf(parseInt(this.getLabelForValue(value)));
-                                                    if (blockIndex >= 0) {
-                                                        return `${this.getLabelForValue(value)}\n${blockDates[blockIndex]}`;
-                                                    }
-                                                    return this.getLabelForValue(value);
-                                                }
-                                                return '';
-                                            }
-                                        },
-                                        
-                                    },
-                                    y: {
-                                        title: {
-                                            display: true,
-                                            text: 'Block Time (seconds)',
-                                            color: '#f8f8f8',
-                                            font: {
-                                                family: 'Orbitron'
-                                            }
-                                        },
-                                        ticks: {
-                                            color: '#f8f8f8'
-                                        },
-                                       
-                                    }
-                                }
+                        // Add all params to query string
+                        Object.keys(params).forEach(key => {
+                            if (params[key] !== null && params[key] !== undefined && params[key] !== 'max') {
+                                queryParams.append(key, params[key]);
                             }
                         });
                         
-                        // Create range chart
-                        const rangeCtx = document.getElementById('rangeChart').getContext('2d');
-                        rangeChart = new Chart(rangeCtx, {
-                            type: 'line',
-                            data: {
-                                labels: blockNumbers,
-                                datasets: [{
-                                    label: 'Overview',
-                                    data: blockTimes,
-                                    backgroundColor: 'rgba(100, 100, 255, 0.2)',
-                                    borderColor: 'rgba(100, 100, 255, 0.5)',
-                                    borderWidth: 1,
-                                    pointRadius: 0
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                plugins: {
-                                    legend: {
-                                        display: false
-                                    },
-                                    tooltip: {
-                                        enabled: false
-                                    }
+                        // Return full URL with query string
+                        return `${baseUrl}?${queryParams.toString()}`;
+                    }
+                    
+                    // Format date for display
+                    function formatDate(timestamp) {
+                        const date = new Date(timestamp * 1000);
+                        return date.toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric' 
+                        });
+                    }
+                    
+                    // Function to fetch data from your API
+                    async function fetchBlockchainData(params = {}) {
+                        resetUI();
+                        
+                        try {
+                            console.log('Fetching data from API with params:', params);
+                            
+                            // If max range is selected, use a large limit
+                            if (params.limit === 'max') {
+                                params.limit = 10000; // Very large number to get all blocks
+                            }
+                            
+                            const apiUrl = getApiUrl(params);
+                            console.log('API URL:', apiUrl);
+                            
+                            const response = await fetch(apiUrl, {
+                                method: 'GET',
+                                headers: {
+                                    'Accept': 'application/json'
                                 },
-                                scales: {
-                                    x: {
-                                        display: true,
-                                        ticks: {
+                                cache: 'no-cache'
+                            });
+                            
+                            console.log('Response status:', response.status);
+                            
+                            if (!response.ok) {
+                                throw new Error(`API responded with status ${response.status}`);
+                            }
+                            
+                            const text = await response.text();
+                            console.log('Response text (first 100 chars):', text.substring(0, 100));
+                            
+                            let data;
+                            try {
+                                data = JSON.parse(text);
+                            } catch (parseError) {
+                                console.error('JSON parse error:', parseError);
+                                throw new Error(`Failed to parse JSON: ${parseError.message}`);
+                            }
+                            
+                            console.log('Parsed data:', data);
+                            
+                            // Hide loading message
+                            document.getElementById('loading-message').style.display = 'none';
+                            
+                            if (!data || !Array.isArray(data) || data.length === 0) {
+                                showError('No blockchain data available.', 'API returned empty or invalid data');
+                                return;
+                            }
+                            
+                            // Validate data format
+                            const firstItem = data[0];
+                            if (!firstItem.block_number || !firstItem.block_time_seconds) {
+                                showError('Invalid data format.', 'Data does not contain expected fields');
+                                console.error('Expected fields missing from data:', firstItem);
+                                return;
+                            }
+                            
+                            // Store all data for filtering
+                            allData = data;
+                            
+                            // Sort data by block number (ascending)
+                            const sortedData = [...data].sort((a, b) => a.block_number - b.block_number);
+                            
+                            const blockNumbers = sortedData.map(block => block.block_number);
+                            const blockTimes = sortedData.map(block => block.block_time_seconds);
+                            const blockDates = sortedData.map(block => formatDate(block.timestamp));
+                            
+                            // Extract moving average data
+                            const movingAverages = sortedData.map(block => block.moving_avg_100);
+                            
+                            // Create main chart
+                            const ctx = document.getElementById('blockTimeChart').getContext('2d');
+                            chart = new Chart(ctx, {
+                                type: 'line',
+                                data: {
+                                    labels: blockNumbers,
+                                    datasets: [
+                                        {
+                                            label: 'Block Duration',
+                                            data: blockTimes,
+                                            backgroundColor: 'rgba(0, 0, 0, 0)',
+                                            borderColor: 'rgba(0, 0, 255, 1)',
+                                            borderWidth: 2,
+                                            pointBackgroundColor: 'rgba(0, 0, 255, 1)',
+                                            pointRadius: 1,
+                                            tension: 0.1,
+                                            yAxisID: 'y',
+                                            type: 'bar'
+                                        },
+                                        {
+                                            label: 'Moving AVG',
+                                            data: movingAverages,
+                                            backgroundColor: 'rgba(255, 255, 0, 0.2)',
+                                            borderColor: 'rgba(255, 255, 0, 1)',
+                                            borderWidth: 2,
+                                            pointBackgroundColor: 'rgba(255, 255, 0, 1)',
+                                            pointRadius: 0,
+                                            tension: 0.1,
+                                            yAxisID: 'y',
+                                            type: 'line'
+                                        }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        title: {
                                             display: true,
-                                            maxRotation: 0,
-                                            autoSkip: true,
-                                            callback: function(value, index, values) {
-                                                // Show only a few date labels
-                                                if (index === 0 || index === Math.floor(blockNumbers.length / 2) || index === blockNumbers.length - 1) {
-                                                    const blockIndex = blockNumbers.indexOf(parseInt(this.getLabelForValue(value)));
-                                                    if (blockIndex >= 0) {
-                                                        return blockDates[blockIndex];
-                                                    }
-                                                }
-                                                return '';
+                                            text: 'Fact0rn Block Time Analysis',
+                                            color: '#f8f8f8',
+                                            font: {
+                                                family: 'Orbitron',
+                                                size: 16
                                             }
                                         },
-                                        grid: {
+                                        legend: {
+                                            labels: {
+                                                color: '#f8f8f8',
+                                                font: {
+                                                    family: 'Orbitron'
+                                                }
+                                            }
+                                        },
+                                        tooltip: {
+                                            callbacks: {
+                                                title: function(tooltipItems) {
+                                                    return `Block #${tooltipItems[0].label}`;
+                                                },
+                                                label: function(context) {
+                                                    if (context.dataset.label === 'Block Duration') {
+                                                        return `Block Time: ${context.raw} seconds`;
+                                                    } else if (context.dataset.label === 'Moving AVG') {
+                                                        return `100-Block Moving Avg: ${context.raw} seconds`;
+                                                    }
+                                                    return `${context.dataset.label}: ${context.raw}`;
+                                                },
+                                                afterLabel: function(context) {
+                                                    if (context.dataset.label === 'Block Duration') {
+                                                        const blockIndex = context.dataIndex;
+                                                        const block = sortedData[blockIndex];
+                                                        return `Date: ${block.datetime}`;
+                                                    }
+                                                    return '';
+                                                }
+                                            }
+                                        },
+                                        zoom: {
+                                            pan: {
+                                                enabled: true,
+                                                mode: 'x'
+                                            },
+                                            zoom: {
+                                                wheel: {
+                                                    enabled: true,
+                                                },
+                                                pinch: {
+                                                    enabled: true
+                                                },
+                                                mode: 'x'
+                                            }
+                                        }
+                                    },
+                                    scales: {
+                                        x: {
+                                            title: {
+                                                display: true,
+                                                text: 'Block Number',
+                                                color: '#f8f8f8',
+                                                font: {
+                                                    family: 'Orbitron'
+                                                }
+                                            },
+                                            ticks: {
+                                                color: '#f8f8f8',
+                                                maxRotation: 45,
+                                                minRotation: 45,
+                                                callback: function(value, index, values) {
+                                                    // Show fewer labels to avoid crowding
+                                                    if (index % 5 === 0) {
+                                                        const blockIndex = blockNumbers.indexOf(parseInt(this.getLabelForValue(value)));
+                                                        if (blockIndex >= 0) {
+                                                            return `${this.getLabelForValue(value)}\n${blockDates[blockIndex]}`;
+                                                        }
+                                                        return this.getLabelForValue(value);
+                                                    }
+                                                    return '';
+                                                }
+                                            },
+                                            
+                                        },
+                                        y: {
+                                            title: {
+                                                display: true,
+                                                text: 'Block Time (seconds)',
+                                                color: '#f8f8f8',
+                                                font: {
+                                                    family: 'Orbitron'
+                                                }
+                                            },
+                                            ticks: {
+                                                color: '#f8f8f8'
+                                            },
+                                          
+                                        }
+                                    }
+                                }
+                            });
+                            
+                            // Create range chart
+                            const rangeCtx = document.getElementById('rangeChart').getContext('2d');
+                            rangeChart = new Chart(rangeCtx, {
+                                type: 'line',
+                                data: {
+                                    labels: blockNumbers,
+                                    datasets: [{
+                                        label: 'Overview',
+                                        data: blockTimes,
+                                        backgroundColor: 'rgba(100, 100, 255, 0.2)',
+                                        borderColor: 'rgba(100, 100, 255, 0.5)',
+                                        borderWidth: 1,
+                                        pointRadius: 0
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: {
+                                            display: false
+                                        },
+                                        tooltip: {
+                                            enabled: false
+                                        }
+                                    },
+                                    scales: {
+                                        x: {
+                                            display: true,
+                                            ticks: {
+                                                display: true,
+                                                maxRotation: 0,
+                                                autoSkip: true,
+                                                callback: function(value, index, values) {
+                                                    // Show only a few date labels
+                                                    if (index === 0 || index === Math.floor(blockNumbers.length / 2) || index === blockNumbers.length - 1) {
+                                                        const blockIndex = blockNumbers.indexOf(parseInt(this.getLabelForValue(value)));
+                                                        if (blockIndex >= 0) {
+                                                            return blockDates[blockIndex];
+                                                        }
+                                                    }
+                                                    return '';
+                                                }
+                                            },
+                                            grid: {
+                                                display: false
+                                            }
+                                        },
+                                        y: {
                                             display: false
                                         }
                                     },
-                                    y: {
-                                        display: false
-                                    }
-                                },
-                                elements: {
-                                    line: {
-                                        tension: 0
+                                    elements: {
+                                        line: {
+                                            tension: 0
+                                        }
                                     }
                                 }
+                            });
+                            
+                        } catch (error) {
+                            console.error('Error details:', error);
+                            showError('Error loading blockchain data. Please try again later.', error.message);
+                        }
+                    }
+                    
+                    // Event listeners for buttons
+                    document.addEventListener('DOMContentLoaded', () => {
+                        // Event listeners for buttons
+                        document.getElementById('retry-button').addEventListener('click', () => {
+                            fetchBlockchainData({ limit: document.getElementById('limitSelect').value });
+                        });
+                        
+                        // Last blocks button
+                        document.getElementById('lastBlocksBtn').addEventListener('click', () => {
+                            const limit = document.getElementById('limitSelect').value;
+                            fetchBlockchainData({ limit });
+                        });
+                        
+                        // First blocks button
+                        document.getElementById('firstBlocksBtn').addEventListener('click', () => {
+                            const limit = document.getElementById('limitSelect').value;
+                            // We need to get the first blocks in the database
+                            // To do this, we'll sort by block number ascending instead of descending
+                            // The API doesn't directly support this, so we'll get more blocks and take the first ones
+                            fetchBlockchainData({ limit: 1000 }).then(() => {
+                                if (chart && allData.length > 0) {
+                                    // Sort by block number ascending
+                                    const sortedData = [...allData].sort((a, b) => a.block_number - b.block_number);
+                                    
+                                    // Take only the first 'limit' blocks
+                                    const limitNum = (limit === 'max') ? sortedData.length : parseInt(limit);
+                                    const limitedData = sortedData.slice(0, limitNum);
+                                    
+                                    // Update chart with first blocks
+                                    chart.data.labels = limitedData.map(block => block.block_number);
+                                    chart.data.datasets[0].data = limitedData.map(block => block.block_time_seconds);
+                                    chart.data.datasets[1].data = limitedData.map(block => block.moving_avg_100);
+                                    chart.update();
+                                    
+                                    // Update range chart too
+                                    if (rangeChart) {
+                                        rangeChart.data.labels = limitedData.map(block => block.block_number);
+                                        rangeChart.data.datasets[0].data = limitedData.map(block => block.block_time_seconds);
+                                        rangeChart.update();
+                                    }
+                                }
+                            });
+                        });
+                        
+                        // Custom range button
+                        document.getElementById('customRangeBtn').addEventListener('click', () => {
+                            const startBlock = document.getElementById('startBlock').value;
+                            const endBlock = document.getElementById('endBlock').value;
+                            
+                            // Validate input
+                            if (startBlock && endBlock && parseInt(startBlock) > parseInt(endBlock)) {
+                                showError('Invalid block range', 'Start block must be less than or equal to end block');
+                                return;
+                            }
+                            
+                            // Fetch data with custom range
+                            fetchBlockchainData({
+                                start_block: startBlock || undefined,
+                                end_block: endBlock || undefined,
+                                limit: 1000 // Get more blocks to ensure we cover the range
+                            });
+                        });
+                        
+                        // Reset zoom button
+                        document.getElementById('resetZoomBtn').addEventListener('click', () => {
+                            if (chart) {
+                                chart.resetZoom();
                             }
                         });
                         
-                    } catch (error) {
-                        console.error('Error details:', error);
-                        showError('Error loading blockchain data. Please try again later.', error.message);
-                    }
-                }
-                
-                // Event listeners for buttons
-                document.addEventListener('DOMContentLoaded', () => {
-                    // Event listeners for buttons
-                    document.getElementById('retry-button').addEventListener('click', () => {
+                        // Limit select change
+                        document.getElementById('limitSelect').addEventListener('change', () => {
+                            // Re-fetch with new limit if last blocks was the most recent selection
+                            if (!document.getElementById('startBlock').value && 
+                                !document.getElementById('endBlock').value) {
+                                fetchBlockchainData({ limit: document.getElementById('limitSelect').value });
+                            }
+                        });
+                        
+                        // Initial data load
                         fetchBlockchainData({ limit: document.getElementById('limitSelect').value });
                     });
+                })();
+            </script>  
+            
+            <!-- Emissions Data Script -->
+            <script>
+                (function() {
+                    // Private variables for this script
+                    let emissionsChart = null;
+                    let emissionsData = [];
                     
-                    // Last blocks button
-                    document.getElementById('lastBlocksBtn').addEventListener('click', () => {
-                        const limit = document.getElementById('limitSelect').value;
-                        fetchBlockchainData({ limit });
-                    });
+                    // Show error message
+                    function showEmissionsError(message, details) {
+                        const errorElement = document.getElementById('emissions-error-details');
+                        const loadingElement = document.getElementById('emissions-loading-message');
+                        const retryButton = document.getElementById('emissions-retry-button');
+                        
+                        loadingElement.textContent = message;
+                        
+                        if (details) {
+                            errorElement.textContent = `Error details: ${details}`;
+                            errorElement.style.display = 'block';
+                        }
+                        
+                        retryButton.style.display = 'inline-block';
+                    }
                     
-                    // First blocks button
-                    document.getElementById('firstBlocksBtn').addEventListener('click', () => {
-                        const limit = document.getElementById('limitSelect').value;
-                        // We need to get the first blocks in the database
-                        // To do this, we'll sort by block number ascending instead of descending
-                        // The API doesn't directly support this, so we'll get more blocks and take the first ones
-                        fetchBlockchainData({ limit: 1000 }).then(() => {
-                            if (chart && allData.length > 0) {
-                                // Sort by block number ascending
-                                const sortedData = [...allData].sort((a, b) => a.block_number - b.block_number);
-                                
-                                // Take only the first 'limit' blocks
-                                const limitNum = (limit === 'max') ? sortedData.length : parseInt(limit);
-                                const limitedData = sortedData.slice(0, limitNum);
-                                
-                                // Update chart with first blocks
-                                chart.data.labels = limitedData.map(block => block.block_number);
-                                chart.data.datasets[0].data = limitedData.map(block => block.block_time_seconds);
-                                chart.data.datasets[1].data = limitedData.map(block => block.moving_avg_100);
-                                chart.update();
-                                
-                                // Update range chart too
-                                if (rangeChart) {
-                                    rangeChart.data.labels = limitedData.map(block => block.block_number);
-                                    rangeChart.data.datasets[0].data = limitedData.map(block => block.block_time_seconds);
-                                    rangeChart.update();
-                                }
+                    // Reset UI elements
+                    function resetEmissionsUI() {
+                        const errorElement = document.getElementById('emissions-error-details');
+                        const loadingElement = document.getElementById('emissions-loading-message');
+                        const retryButton = document.getElementById('emissions-retry-button');
+                        
+                        loadingElement.textContent = 'Loading emissions data...';
+                        loadingElement.style.display = 'block';
+                        errorElement.style.display = 'none';
+                        retryButton.style.display = 'none';
+                        
+                        // Destroy previous chart if it exists
+                        if (emissionsChart) {
+                            emissionsChart.destroy();
+                            emissionsChart = null;
+                        }
+                    }
+                    
+                    // Format date for display
+                    function formatEmissionsDate(dateStr) {
+                        const date = new Date(dateStr);
+                        return date.toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric' 
+                        });
+                    }
+                    
+                    // Function to fetch emissions data
+                    async function fetchEmissionsData() {
+                        resetEmissionsUI();
+                        
+                        try {
+                            console.log('Fetching emissions data from API');
+                            
+                            const apiUrl = 'https://fact0rn-data-d59a93edb52f.herokuapp.com/api/emissions/daily';
+                            
+                            const response = await fetch(apiUrl, {
+                                method: 'GET',
+                                headers: {
+                                    'Accept': 'application/json'
+                                },
+                                cache: 'no-cache'
+                            });
+                            
+                            console.log('Emissions API response status:', response.status);
+                            
+                            if (!response.ok) {
+                                throw new Error(`Emissions API responded with status ${response.status}`);
                             }
-                        });
-                    });
+                            
+                            const text = await response.text();
+                            console.log('Emissions response text (first 100 chars):', text.substring(0, 100));
+                            
+                            let data;
+                            try {
+                                data = JSON.parse(text);
+                            } catch (parseError) {
+                                console.error('JSON parse error:', parseError);
+                                throw new Error(`Failed to parse emissions JSON: ${parseError.message}`);
+                            }
+                            
+                            console.log('Parsed emissions data:', data);
+                            
+                            // Hide loading message
+                            document.getElementById('emissions-loading-message').style.display = 'none';
+                            
+                            if (!data || !Array.isArray(data) || data.length === 0) {
+                                showEmissionsError('No emissions data available.', 'API returned empty or invalid data');
+                                return;
+                            }
+                            
+                            // Store data
+                            emissionsData = data;
+                            
+                            // Sort data by date ascending
+                            const sortedData = [...data].sort((a, b) => new Date(a.date) - new Date(b.date));
+                            
+                            const dates = sortedData.map(item => formatEmissionsDate(item.date));
+                            const emissions = sortedData.map(item => parseFloat(item.daily_emission));
+                            const blockCounts = sortedData.map(item => item.block_count);
+                            
+                            // Create emissions chart
+                            const ctx = document.getElementById('emissionsChart').getContext('2d');
+                            emissionsChart = new Chart(ctx, {
+                                type: 'line',
+                                data: {
+                                    labels: dates,
+                                    datasets: [
+                                        {
+                                            label: 'Daily Emission (FACN)',
+                                            data: emissions,
+                                            backgroundColor: 'rgba(255, 153, 0, 0.2)',
+                                            borderColor: 'rgba(255, 153, 0, 1)',
+                                            borderWidth: 3,
+                                            pointBackgroundColor: 'rgba(255, 153, 0, 1)',
+                                            pointRadius: 4,
+                                            tension: 0.1
+                                        }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        title: {
+                                            display: true,
+                                            text: 'Fact0rn Daily Emissions',
+                                            color: '#f8f8f8',
+                                            font: {
+                                                family: 'Orbitron',
+                                                size: 16
+                                            }
+                                        },
+                                        legend: {
+                                            labels: {
+                                                color: '#f8f8f8',
+                                                font: {
+                                                    family: 'Orbitron'
+                                                }
+                                            }
+                                        },
+                                        tooltip: {
+                                            callbacks: {
+                                                title: function(tooltipItems) {
+                                                    return tooltipItems[0].label;
+                                                },
+                                                label: function(context) {
+                                                    return `Daily Emission: ${context.raw.toFixed(2)} FACN`;
+                                                },
+                                                afterLabel: function(context) {
+                                                    const dataIndex = context.dataIndex;
+                                                    const block = sortedData[dataIndex];
+                                                    return `Blocks Mined: ${block.block_count}`;
+                                                }
+                                            }
+                                        },
+                                        zoom: {
+                                            pan: {
+                                                enabled: true,
+                                                mode: 'x'
+                                            },
+                                            zoom: {
+                                                wheel: {
+                                                    enabled: true,
+                                                },
+                                                pinch: {
+                                                    enabled: true
+                                                },
+                                                mode: 'x'
+                                            }
+                                        }
+                                    },
+                                    scales: {
+                                        x: {
+                                            title: {
+                                                display: true,
+                                                text: 'Date',
+                                                color: '#f8f8f8',
+                                                font: {
+                                                    family: 'Orbitron'
+                                                }
+                                            },
+                                            ticks: {
+                                                color: '#f8f8f8',
+                                                maxRotation: 45,
+                                                minRotation: 45
+                                            }
+                                        },
+                                        y: {
+                                            title: {
+                                                display: true,
+                                                text: 'Daily Emission (FACN)',
+                                                color: '#f8f8f8',
+                                                font: {
+                                                    family: 'Orbitron'
+                                                }
+                                            },
+                                            ticks: {
+                                                color: '#f8f8f8'
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                            
+                        } catch (error) {
+                            console.error('Emissions error details:', error);
+                            showEmissionsError('Error loading emissions data. Please try again later.', error.message);
+                        }
+                    }
                     
-                    // Custom range button
-                    document.getElementById('customRangeBtn').addEventListener('click', () => {
-                        const startBlock = document.getElementById('startBlock').value;
-                        const endBlock = document.getElementById('endBlock').value;
+                    // Event listeners
+                    document.addEventListener('DOMContentLoaded', function() {
+                        // Retry button listener
+                        document.getElementById('emissions-retry-button').addEventListener('click', fetchEmissionsData);
                         
-                        // Validate input
-                        if (startBlock && endBlock && parseInt(startBlock) > parseInt(endBlock)) {
-                            showError('Invalid block range', 'Start block must be less than or equal to end block');
-                            return;
-                        }
-                        
-                        // Fetch data with custom range
-                        fetchBlockchainData({
-                            start_block: startBlock || undefined,
-                            end_block: endBlock || undefined,
-                            limit: 1000 // Get more blocks to ensure we cover the range
-                        });
+                        // Initial data load
+                        fetchEmissionsData();
                     });
-                    
-                    // Reset zoom button
-                    document.getElementById('resetZoomBtn').addEventListener('click', () => {
-                        if (chart) {
-                            chart.resetZoom();
-                        }
-                    });
-                    
-                    // Limit select change
-                    document.getElementById('limitSelect').addEventListener('change', () => {
-                        // Re-fetch with new limit if last blocks was the most recent selection
-                        if (!document.getElementById('startBlock').value && 
-                            !document.getElementById('endBlock').value) {
-                            fetchBlockchainData({ limit: document.getElementById('limitSelect').value });
-                        }
-                    });
-                    
-                    // Initial data load
-                    fetchBlockchainData({ limit: document.getElementById('limitSelect').value });
-                });
+                })();
             </script>
+
         </div>
     </div>
 </body>
