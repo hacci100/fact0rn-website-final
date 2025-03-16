@@ -648,7 +648,7 @@
                                     labels: dates,
                                     datasets: [
                                         {
-                                            label: 'Daily Emission (FACN)',
+                                            label: 'Daily Emission (FACT)',
                                             data: emissions,
                                             backgroundColor: 'rgba(255, 153, 0, 0.2)',
                                             borderColor: 'rgba(255, 153, 0, 1)',
@@ -686,7 +686,7 @@
                                                     return tooltipItems[0].label;
                                                 },
                                                 label: function(context) {
-                                                    return `Daily Emission: ${context.raw.toFixed(2)} FACN`;
+                                                    return `Daily Emission: ${context.raw.toFixed(2)} FACT`;
                                                 },
                                                 afterLabel: function(context) {
                                                     const dataIndex = context.dataIndex;
@@ -730,7 +730,7 @@
                                         y: {
                                             title: {
                                                 display: true,
-                                                text: 'Daily Emission (FACN)',
+                                                text: 'Daily Emission (FACT)',
                                                 color: '#f8f8f8',
                                                 font: {
                                                     family: 'Orbitron'
