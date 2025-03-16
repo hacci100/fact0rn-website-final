@@ -763,5 +763,40 @@
 
         </div>
     </div>
+    <div class="donation-floater">
+        <button class="donate-btn">❤️ Support</button>
+        <div class="address-card">
+          <div class="copy-feedback">Address copied!</div>
+          <div class="address-group" onclick="copyAddress(this)">
+            <span class="coin-label">FACT0RN</span>
+            <code class="address">fact1qcnuygmqfupp4kvu374tgwlt888j2pwzftaxp6l</code>
+          </div>
+          <div class="address-group" onclick="copyAddress(this)">
+            <span class="coin-label">KASPA</span>
+            <code class="address">kaspa:qq9ndkzctcgwxwqrk2sc8n78ugh3etpaggdhjenz8vzkvxqp8v3musgahwrvz</code>
+          </div>
+          <div class="address-group" onclick="copyAddress(this)">
+            <span class="coin-label">BITCOIN</span>
+            <code class="address">3JA6trsjNfTUxo273DdDL3iZZt5PEPZ6jV</code>
+          </div>
+          <div class="address-group" onclick="copyAddress(this)">
+            <span class="coin-label">MONERO</span>
+            <code class="address">84Wio7KcAvtFgjH5fUpGRghQwRuqcRyseNaCH1Hvpcx2igMXWzTAPL8Dv4SKTCo5obKFmFkuhyb1tWuuRen4VvNg2njR84g</code>
+          </div>
+        </div>
+      </div>
+      
+      <script>
+      function copyAddress(element) {
+        const text = element.querySelector('.address').innerText;
+        navigator.clipboard.writeText(text);
+        
+        const feedback = document.querySelector('.copy-feedback');
+        feedback.style.display = 'block';
+        feedback.style.animation = 'none';
+        void feedback.offsetHeight; // Trigger reflow
+        feedback.style.animation = 'fadeOut 1.5s ease 1s forwards';
+      }
+      </script>
 </body>
 </html>

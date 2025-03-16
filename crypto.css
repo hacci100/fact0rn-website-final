@@ -236,5 +236,78 @@ body {
   transform: translateY(-3px);
 }
 
+/* Floating Donation Widget */
+.donation-floater {
+  position: fixed;
+  bottom: 25px;
+  right: 25px;
+  z-index: 1000;
+}
 
+.donate-btn {
+  background: rgba(76, 175, 80, 0.15);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  color: #4CAF50;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: all 0.2s ease;
+}
 
+.address-card {
+  display: none;
+  background: rgba(0, 0, 0, 0.95);
+  border: 1px solid rgba(76, 175, 80, 0.2);
+  border-radius: 8px;
+  padding: 15px;
+  margin-top: 10px;
+  width: 300px;
+}
+
+.donation-floater:hover .address-card {
+  display: block;
+  animation: fadeIn 0.3s ease;
+}
+
+.address-group {
+  margin: 12px 0;
+  padding: 10px;
+  border-radius: 6px;
+  transition: background 0.2s ease;
+  cursor: pointer;
+}
+
+.address-group:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.coin-label {
+  color: #4CAF50;
+  font-size: 0.85em;
+  margin-bottom: 4px;
+}
+
+.address {
+  color: #888;
+  font-size: 0.75em;
+  word-break: break-all;
+  display: block;
+}
+
+.copy-feedback {
+  position: fixed;
+  bottom: 80px;
+  right: 30px;
+  background: rgba(76, 175, 80, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  display: none;
+  font-size: 0.8em;
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
