@@ -56,6 +56,13 @@
                     </div>
                     
                     <div>
+                        <label for="blockDateRange" style="color: #FF9900; margin-bottom: 5px; display: block;">Block Date Range:</label>
+                        <input type="date" id="startBlockDate" style="background: #2a2a2a; color: #f8f8f8; border: 1px solid #444; padding: 5px; margin-right: 5px;">
+                        <span style="color: #f8f8f8;">to</span>
+                        <input type="date" id="endBlockDate" style="background: #2a2a2a; color: #f8f8f8; border: 1px solid #444; padding: 5px; margin-left: 5px;">
+                    </div>
+                    
+                    <div>
                         <label for="limitSelect" style="color: #FF9900; margin-bottom: 5px; display: block;">Number of Blocks:</label>
                         <select id="limitSelect" style="background: #2a2a2a; color: #f8f8f8; border: 1px solid #444; padding: 5px;">
                             <option value="20">Last 20 Blocks</option>
@@ -101,6 +108,36 @@
             <!-- Emissions Chart Section -->
             <div class="chart-container" style="background: rgba(0, 0, 0, 0.6); border: 1px solid #FF9900; border-radius: 10px; padding: 1.5rem; margin: 2rem 0; box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); text-align: center;">
                 <h3 style="color: #FF9900; font-family: 'Orbitron', sans-serif; margin-bottom: 1rem;">Fact0rn Daily Emissions</h3>
+                
+                <!-- Emissions Controls -->
+                <div class="controls-container" style="margin-bottom: 20px; padding: 15px; background: rgba(0, 0, 0, 0.6); border: 1px solid #FF9900; border-radius: 10px;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; margin-bottom: 15px;">
+                        <div>
+                            <label for="dateRange" style="color: #FF9900; margin-bottom: 5px; display: block;">Date Range (YYYY-MM-DD):</label>
+                            <input type="date" id="startDate" style="background: #2a2a2a; color: #f8f8f8; border: 1px solid #444; padding: 5px; margin-right: 5px;">
+                            <span style="color: #f8f8f8;">to</span>
+                            <input type="date" id="endDate" style="background: #2a2a2a; color: #f8f8f8; border: 1px solid #444; padding: 5px; margin-left: 5px;">
+                        </div>
+                        
+                        <div>
+                            <label for="daysSelect" style="color: #FF9900; margin-bottom: 5px; display: block;">Number of Days:</label>
+                            <select id="daysSelect" style="background: #2a2a2a; color: #f8f8f8; border: 1px solid #444; padding: 5px;">
+                                <option value="7">Last 7 Days</option>
+                                <option value="14">Last 14 Days</option>
+                                <option value="30" selected>Last 30 Days</option>
+                                <option value="60">Last 60 Days</option>
+                                <option value="90">Last 90 Days</option>
+                                <option value="max">All Available Data</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                        <button id="emissionsCustomRangeBtn" style="background: #FF9900; color: #000; border: none; border-radius: 5px; padding: 8px 15px; cursor: pointer;">Apply Custom Range</button>
+                        <button id="emissionsResetZoomBtn" style="background: #FF9900; color: #000; border: none; border-radius: 5px; padding: 8px 15px; cursor: pointer;">Reset Zoom</button>
+                    </div>
+                </div>
+                
                 <div id="emissions-loading-message">Loading emissions data...</div>
                 <div id="emissions-error-details" style="display: none; color: #ff6b6b; background: rgba(255, 107, 107, 0.1); border: 1px solid #ff6b6b; border-radius: 5px; padding: 1rem; margin: 1rem 0;"></div>
                 <button id="emissions-retry-button" style="display: none; background: #FF9900; color: #000; border: none; border-radius: 5px; padding: 0.75rem 1.5rem; font-weight: bold; cursor: pointer; margin: 0.5rem;">Retry</button>
@@ -206,7 +243,7 @@
                                 cache: 'no-cache'
                             });
                             
-                            console.log('Response status:', response.status);
+                            console.log('API response status:', response.status);
                             
                             if (!response.ok) {
                                 throw new Error(`API responded with status ${response.status}`);
@@ -225,35 +262,155 @@
                             
                             console.log('Parsed data:', data);
                             
+                            // Log a sample data item to check structure
+                            if (data && Array.isArray(data) && data.length > 0) {
+                                console.log('Sample data item structure:', JSON.stringify(data[0], null, 2));
+                            }
+                            
                             // Hide loading message
                             document.getElementById('loading-message').style.display = 'none';
                             
                             if (!data || !Array.isArray(data) || data.length === 0) {
-                                showError('No blockchain data available.', 'API returned empty or invalid data');
+                                showError('No data available.', 'API returned empty or invalid data');
                                 return;
                             }
                             
-                            // Validate data format
+                            // Basic validation of data format
                             const firstItem = data[0];
-                            if (!firstItem.block_number || !firstItem.block_time_seconds) {
-                                showError('Invalid data format.', 'Data does not contain expected fields');
-                                console.error('Expected fields missing from data:', firstItem);
+                            if (!firstItem || typeof firstItem !== 'object') {
+                                showError('Invalid data format.', 'Data does not contain expected format');
+                                console.error('Invalid data format:', firstItem);
                                 return;
                             }
                             
                             // Store all data for filtering
                             allData = data;
                             
-                            // Sort data by block number (ascending)
-                            const sortedData = [...data].sort((a, b) => a.block_number - b.block_number);
+                            // Apply date filtering if start_date and end_date are provided but no block numbers
+                            let filteredData = [...data];
+                            if ((params.start_date || params.end_date) && !params.start_block && !params.end_block) {
+                                console.log('Filtering data by date:', params.start_date, params.end_date);
+                                
+                                try {
+                                    if (params.start_date) {
+                                        const startDate = new Date(params.start_date).getTime() / 1000; // Convert to seconds
+                                        if (isNaN(startDate)) {
+                                            throw new Error(`Invalid start date format: ${params.start_date}`);
+                                        }
+                                        filteredData = filteredData.filter(block => block.timestamp >= startDate);
+                                        console.log(`Filtered blocks after ${params.start_date}. Remaining blocks: ${filteredData.length}`);
+                                    }
+                                    
+                                    if (params.end_date) {
+                                        // Add one day to include the end date
+                                        const endDate = new Date(params.end_date);
+                                        if (isNaN(endDate.getTime())) {
+                                            throw new Error(`Invalid end date format: ${params.end_date}`);
+                                        }
+                                        endDate.setDate(endDate.getDate() + 1);
+                                        const endTimestamp = endDate.getTime() / 1000; // Convert to seconds
+                                        
+                                        filteredData = filteredData.filter(block => block.timestamp < endTimestamp);
+                                        console.log(`Filtered blocks before ${params.end_date}. Remaining blocks: ${filteredData.length}`);
+                                    }
+                                } catch (dateError) {
+                                    console.error('Date filtering error:', dateError);
+                                    showError('Date filtering error', dateError.message);
+                                    return;
+                                }
+                                
+                                if (filteredData.length === 0) {
+                                    showError('No data available for the selected date range.', 'Please try a different range');
+                                    return;
+                                }
+                            }
                             
-                            const blockNumbers = sortedData.map(block => block.block_number);
-                            const blockTimes = sortedData.map(block => block.block_time_seconds);
-                            const blockDates = sortedData.map(block => formatDate(block.timestamp));
+                            // Check property names consistently
+                            const sampleBlock = filteredData[0];
+                            console.log('Sample block structure:', JSON.stringify(sampleBlock, null, 2));
                             
-                            // Extract moving average data
-                            const movingAverages100 = sortedData.map(block => block.moving_avg_100);
-                            const movingAverages672 = sortedData.map(block => block.moving_avg_672);
+                            // Log all available fields to help identify what's available
+                            const availableFields = Object.keys(sampleBlock);
+                            console.log('All available fields in API response:', availableFields);
+                            
+                            // Use simple field detection for standard fields
+                            const blockNumberField = sampleBlock.hasOwnProperty('height') ? 'height' : 'block_number';
+                            const blockTimeField = 'block_time_seconds';
+                            const timestampField = 'timestamp';
+                            
+                            // Explicitly look for moving average fields - check several potential field names
+                            let movingAvg100Field = null;
+                            let movingAvg672Field = null;
+                            
+                            // Check possible field names for 100-block MA
+                            const possibleMA100Fields = ['moving_avg_100', 'ma_100', 'moving_average_100'];
+                            for (const fieldName of possibleMA100Fields) {
+                                if (sampleBlock.hasOwnProperty(fieldName)) {
+                                    movingAvg100Field = fieldName;
+                                    break;
+                                }
+                            }
+                            
+                            // If still not found, use a default
+                            if (!movingAvg100Field) {
+                                movingAvg100Field = 'moving_avg_100';
+                            }
+                            
+                            // Check possible field names for 672-block MA
+                            const possibleMA672Fields = ['moving_avg_672', 'ma_672', 'moving_average_672'];
+                            for (const fieldName of possibleMA672Fields) {
+                                if (sampleBlock.hasOwnProperty(fieldName)) {
+                                    movingAvg672Field = fieldName;
+                                    break;
+                                }
+                            }
+                            
+                            // If still not found, use a default
+                            if (!movingAvg672Field) {
+                                movingAvg672Field = 'moving_avg_672';
+                            }
+                            
+                            console.log(`Using field names: blockNumber=${blockNumberField}, blockTime=${blockTimeField}, timestamp=${timestampField}`);
+                            console.log(`Moving average fields: 100=${movingAvg100Field}, 672=${movingAvg672Field}`);
+                            
+                            if (!blockNumberField || !blockTimeField || !timestampField) {
+                                console.error('Cannot detect one or more required fields in the API response');
+                                showError('API Response Structure Error', 'Unable to identify key fields in the data. Check console logs for details.');
+                                return;
+                            }
+                            
+                            // Sort by block number ascending
+                            const sortedData = filteredData.sort((a, b) => a[blockNumberField] - b[blockNumberField]);
+                            
+                            const blockNumbers = sortedData.map(block => block[blockNumberField]);
+                            const blockTimes = sortedData.map(block => block[blockTimeField]);
+                            const blockDates = sortedData.map(block => formatDate(block[timestampField]));
+                            
+                            // Extract moving average data - check if fields exist before accessing
+                            const movingAverages100 = sortedData.map(block => {
+                                const value = block[movingAvg100Field];
+                                return value !== undefined ? Number(value) : null;
+                            });
+                            
+                            const movingAverages672 = sortedData.map(block => {
+                                const value = block[movingAvg672Field];
+                                return value !== undefined ? Number(value) : null;
+                            });
+                            
+                            console.log('Moving Average 100 sample:', movingAverages100.slice(0, 5));
+                            console.log('Moving Average 672 sample:', movingAverages672.slice(0, 5));
+                            
+                            // Calculate what percentage of data points are null
+                            const nullCount100 = movingAverages100.filter(val => val === null).length;
+                            const nullCount672 = movingAverages672.filter(val => val === null).length;
+                            
+                            console.log(`MA 100 null values: ${nullCount100}/${movingAverages100.length} (${Math.round(nullCount100/movingAverages100.length*100)}%)`);
+                            console.log(`MA 672 null values: ${nullCount672}/${movingAverages672.length} (${Math.round(nullCount672/movingAverages672.length*100)}%)`);
+                            
+                            // If all values are null, log a clear warning
+                            if (nullCount672 === movingAverages672.length) {
+                                console.warn('All 672 MA values are null - this dataset may be missing in the API response');
+                            }
                             
                             // Create main chart
                             const ctx = document.getElementById('blockTimeChart').getContext('2d');
@@ -337,12 +494,9 @@
                                                     return `${context.dataset.label}: ${context.raw}`;
                                                 },
                                                 afterLabel: function(context) {
-                                                    if (context.dataset.label === 'Block Duration') {
-                                                        const blockIndex = context.dataIndex;
-                                                        const block = sortedData[blockIndex];
-                                                        return `Date: ${block.datetime}`;
-                                                    }
-                                                    return '';
+                                                    const blockIndex = context.dataIndex;
+                                                    const block = sortedData[blockIndex];
+                                                    return `Date: ${formatDate(block[timestampField])}`;
                                                 }
                                             }
                                         },
@@ -379,9 +533,9 @@
                                                 callback: function(value, index, values) {
                                                     // Show fewer labels to avoid crowding
                                                     if (index % 5 === 0) {
-                                                        const blockIndex = blockNumbers.indexOf(parseInt(this.getLabelForValue(value)));
+                                                        const blockIndex = sortedData.findIndex(block => block[blockNumberField] === parseInt(this.getLabelForValue(value)));
                                                         if (blockIndex >= 0) {
-                                                            return `${this.getLabelForValue(value)}\n${blockDates[blockIndex]}`;
+                                                            return `${this.getLabelForValue(value)}\n${formatDate(sortedData[blockIndex][timestampField])}`;
                                                         }
                                                         return this.getLabelForValue(value);
                                                     }
@@ -443,10 +597,10 @@
                                                 autoSkip: true,
                                                 callback: function(value, index, values) {
                                                     // Show only a few date labels
-                                                    if (index === 0 || index === Math.floor(blockNumbers.length / 2) || index === blockNumbers.length - 1) {
-                                                        const blockIndex = blockNumbers.indexOf(parseInt(this.getLabelForValue(value)));
+                                                    if (index === 0 || index === Math.floor(sortedData.length / 2) || index === sortedData.length - 1) {
+                                                        const blockIndex = sortedData.findIndex(block => block[blockNumberField] === parseInt(this.getLabelForValue(value)));
                                                         if (blockIndex >= 0) {
-                                                            return blockDates[blockIndex];
+                                                            return formatDate(sortedData[blockIndex][timestampField]);
                                                         }
                                                     }
                                                     return '';
@@ -485,6 +639,8 @@
                         document.getElementById('customRangeBtn').addEventListener('click', () => {
                             const startBlock = document.getElementById('startBlock').value;
                             const endBlock = document.getElementById('endBlock').value;
+                            const startBlockDate = document.getElementById('startBlockDate').value;
+                            const endBlockDate = document.getElementById('endBlockDate').value;
                             
                             // Validate input
                             if (startBlock && endBlock && parseInt(startBlock) > parseInt(endBlock)) {
@@ -492,10 +648,17 @@
                                 return;
                             }
                             
+                            if (startBlockDate && endBlockDate && new Date(startBlockDate) > new Date(endBlockDate)) {
+                                showError('Invalid date range', 'Start date must be before end date');
+                                return;
+                            }
+                            
                             // Fetch data with custom range
                             fetchBlockchainData({
                                 start_block: startBlock || undefined,
                                 end_block: endBlock || undefined,
+                                start_date: startBlockDate || undefined,
+                                end_date: endBlockDate || undefined,
                                 limit: 1000 // Get more blocks to ensure we cover the range
                             });
                         });
@@ -511,7 +674,9 @@
                         document.getElementById('limitSelect').addEventListener('change', () => {
                             // Re-fetch with new limit if last blocks was the most recent selection
                             if (!document.getElementById('startBlock').value && 
-                                !document.getElementById('endBlock').value) {
+                                !document.getElementById('endBlock').value &&
+                                !document.getElementById('startBlockDate').value &&
+                                !document.getElementById('endBlockDate').value) {
                                 fetchBlockchainData({ limit: document.getElementById('limitSelect').value });
                             }
                         });
@@ -574,7 +739,7 @@
                     }
                     
                     // Function to fetch emissions data
-                    async function fetchEmissionsData() {
+                    async function fetchEmissionsData(options = {}) {
                         resetEmissionsUI();
                         
                         try {
@@ -617,11 +782,75 @@
                                 return;
                             }
                             
-                            // Store data
+                            // Basic validation of data format
+                            const firstItem = data[0];
+                            if (!firstItem || typeof firstItem !== 'object') {
+                                showEmissionsError('Invalid data format.', 'Data does not contain expected format');
+                                console.error('Invalid data format:', firstItem);
+                                return;
+                            }
+                            
+                            // Store full data set
                             emissionsData = data;
                             
                             // Sort data by date ascending
-                            const sortedData = [...data].sort((a, b) => new Date(a.date) - new Date(b.date));
+                            let sortedData = [...data].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                            // Apply date filtering if options are provided
+                            if (options.start_date || options.end_date || options.days) {
+                                console.log('Applying date filters:', options);
+                                
+                                try {
+                                    // Filter by specific date range if both start and end dates are provided
+                                    if (options.start_date && options.end_date) {
+                                        const startDate = new Date(options.start_date);
+                                        const endDate = new Date(options.end_date);
+                                        
+                                        if (isNaN(startDate.getTime())) {
+                                            throw new Error(`Invalid start date format: ${options.start_date}`);
+                                        }
+                                        
+                                        if (isNaN(endDate.getTime())) {
+                                            throw new Error(`Invalid end date format: ${options.end_date}`);
+                                        }
+                                        
+                                        // Add one day to end date to include the end date in the range
+                                        endDate.setDate(endDate.getDate() + 1);
+                                        
+                                        sortedData = sortedData.filter(item => {
+                                            const itemDate = new Date(item.date);
+                                            return itemDate >= startDate && itemDate < endDate;
+                                        });
+                                        
+                                        console.log(`Filtered data by date range: ${options.start_date} to ${options.end_date}. Remaining data points: ${sortedData.length}`);
+                                    } 
+                                    // Filter by last N days if days option is provided
+                                    else if (options.days && options.days !== 'max') {
+                                        const days = parseInt(options.days);
+                                        if (isNaN(days)) {
+                                            throw new Error(`Invalid days value: ${options.days}`);
+                                        }
+                                        
+                                        const cutoffDate = new Date();
+                                        cutoffDate.setDate(cutoffDate.getDate() - days);
+                                        
+                                        sortedData = sortedData.filter(item => {
+                                            return new Date(item.date) >= cutoffDate;
+                                        });
+                                        
+                                        console.log(`Filtered data to last ${days} days. Remaining data points: ${sortedData.length}`);
+                                    }
+                                } catch (dateError) {
+                                    console.error('Emissions date filtering error:', dateError);
+                                    showEmissionsError('Date filtering error', dateError.message);
+                                    return;
+                                }
+                            }
+                            
+                            if (sortedData.length === 0) {
+                                showEmissionsError('No data available for the selected date range.', 'Please try a different range');
+                                return;
+                            }
                             
                             const dates = sortedData.map(item => formatEmissionsDate(item.date));
                             const emissions = sortedData.map(item => parseFloat(item.daily_emission));
@@ -755,6 +984,33 @@
                     document.addEventListener('DOMContentLoaded', function() {
                         // Retry button listener
                         document.getElementById('emissions-retry-button').addEventListener('click', fetchEmissionsData);
+                        
+                        // Custom range button
+                        document.getElementById('emissionsCustomRangeBtn').addEventListener('click', () => {
+                            const startDate = document.getElementById('startDate').value;
+                            const endDate = document.getElementById('endDate').value;
+                            const days = document.getElementById('daysSelect').value;
+                            
+                            // Validate input
+                            if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+                                showEmissionsError('Invalid date range', 'Start date must be before end date');
+                                return;
+                            }
+                            
+                            // Fetch data with custom range
+                            fetchEmissionsData({
+                                start_date: startDate || undefined,
+                                end_date: endDate || undefined,
+                                days: days || undefined
+                            });
+                        });
+                        
+                        // Reset zoom button
+                        document.getElementById('emissionsResetZoomBtn').addEventListener('click', () => {
+                            if (emissionsChart) {
+                                emissionsChart.resetZoom();
+                            }
+                        });
                         
                         // Initial data load
                         fetchEmissionsData();
@@ -1153,7 +1409,7 @@
         </div>
     </div>
     <div class="donation-floater">
-        <button class="donate-btn">❤️ Support</button>
+        <button class="donate-btn">Support</button>
         <div class="address-card">
           <div class="copy-feedback">Address copied!</div>
           <div class="address-group" onclick="copyAddress(this)">
