@@ -826,7 +826,7 @@
                         try {
                             console.log('Fetching hashrate data from API');
                             
-                            const apiUrl = 'https://fact0rn-data-d59a93edb52f.herokuapp.com/api/hashrate';
+                            const apiUrl = 'https://fact0rn-data-d59a93edb52f.herokuapp.com/api/all-data';
                             
                             const response = await fetch(apiUrl, {
                                 method: 'GET',
@@ -839,7 +839,9 @@
                             console.log('Hashrate API response status:', response.status);
                             
                             if (!response.ok) {
-                                throw new Error(`Hashrate API responded with status ${response.status}`);
+                                const errorText = await response.text();
+                                console.error('Hashrate API error response:', errorText);
+                                throw new Error(`Hashrate API responded with status ${response.status}: ${errorText}`);
                             }
                             
                             const text = await response.text();
@@ -858,46 +860,125 @@
                             // Hide loading message
                             document.getElementById('hashrate-loading-message').style.display = 'none';
                             
+                            // Check if we have the required data (API returns an array)
                             if (!data || !Array.isArray(data) || data.length === 0) {
-                                showHashrateError('No hashrate data available.', 'API returned empty or invalid data');
+                                console.error('Invalid data structure:', data);
+                                showHashrateError('No hashrate data available.', 'API returned invalid data structure');
                                 return;
                             }
                             
+                            // Process all data items (up to 100 most recent entries for performance)
+                            const maxEntries = 100;
+                            const dataToProcess = data.slice(0, maxEntries);
+                            
+                            // Create data structures for the charts
+                            const hashrateChartData = {
+                                labels: [],
+                                hashrates: [],
+                                timestamps: []
+                            };
+                            
+                            const emissionsChartData = {
+                                labels: [],
+                                emissions: [],
+                                timestamps: []
+                            };
+                            
+                            // Process data in reverse order (oldest to newest)
+                            for (let i = dataToProcess.length - 1; i >= 0; i--) {
+                                const item = dataToProcess[i];
+                                
+                                if (item && typeof item.network_hashrate === 'number') {
+                                    hashrateChartData.labels.push(item.block_number);
+                                    hashrateChartData.hashrates.push(convertToGHs(item.network_hashrate));
+                                    hashrateChartData.timestamps.push(item.timestamp);
+                                }
+                                
+                                // Check if emissions data is available
+                                if (item && typeof item.block_reward === 'number') {
+                                    emissionsChartData.labels.push(item.block_number);
+                                    emissionsChartData.emissions.push(item.block_reward);
+                                    emissionsChartData.timestamps.push(item.timestamp);
+                                }
+                            }
+                            
                             // Store data
-                            hashrateData = data;
-                            
-                            // Sort data by timestamp ascending
-                            const sortedData = [...data].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                            
-                            const timestamps = sortedData.map(item => item.timestamp);
-                            const blockNumbers = sortedData.map(item => item.block_number);
-                            // Convert hashrate to GH/s
-                            const hashrates = sortedData.map(item => convertToGHs(item.hashrate));
-                            const formattedDates = sortedData.map(item => formatHashrateDate(item.timestamp));
+                            hashrateData = dataToProcess.map(item => ({
+                                block_number: item.block_number,
+                                hashrate: item.network_hashrate,
+                                timestamp: item.timestamp
+                            }));
                             
                             // Create hashrate chart
-                            const ctx = document.getElementById('hashrateChart').getContext('2d');
-                            hashrateChart = new Chart(ctx, {
+                            const hashrateCtx = document.getElementById('hashrateChart').getContext('2d');
+                            hashrateChart = new Chart(hashrateCtx, {
                                 type: 'line',
                                 data: {
-                                    labels: blockNumbers,
+                                    labels: hashrateChartData.labels,
                                     datasets: [
                                         {
                                             label: 'Network Hashrate (GH/s)',
-                                            data: hashrates,
+                                            data: hashrateChartData.hashrates,
                                             backgroundColor: 'rgba(0, 255, 0, 0.2)',
                                             borderColor: 'rgba(0, 255, 0, 1)',
-                                            borderWidth: 3,
-                                            pointBackgroundColor: 'rgba(0, 255, 0, 1)',
-                                            pointRadius: 2,
-                                            tension: 0.1
+                                            borderWidth: 2,
+                                            tension: 0.2
                                         }
                                     ]
                                 },
                                 options: {
                                     responsive: true,
                                     maintainAspectRatio: false,
+                                    scales: {
+                                        x: {
+                                            title: {
+                                                display: true,
+                                                text: 'Block Number',
+                                                color: '#f8f8f8',
+                                                font: {
+                                                    family: 'Orbitron',
+                                                    size: 14
+                                                }
+                                            },
+                                            grid: {
+                                                color: 'rgba(255, 255, 255, 0.1)'
+                                            },
+                                            ticks: {
+                                                color: '#f8f8f8',
+                                                maxTicksLimit: 10
+                                            }
+                                        },
+                                        y: {
+                                            title: {
+                                                display: true,
+                                                text: 'Hashrate (GH/s)',
+                                                color: '#f8f8f8',
+                                                font: {
+                                                    family: 'Orbitron',
+                                                    size: 14
+                                                }
+                                            },
+                                            grid: {
+                                                color: 'rgba(255, 255, 255, 0.1)'
+                                            },
+                                            ticks: {
+                                                color: '#f8f8f8',
+                                                callback: function(value) {
+                                                    return value.toFixed(2);
+                                                }
+                                            }
+                                        }
+                                    },
                                     plugins: {
+                                        legend: {
+                                            labels: {
+                                                color: '#f8f8f8',
+                                                font: {
+                                                    family: 'Orbitron',
+                                                    size: 12
+                                                }
+                                            }
+                                        },
                                         title: {
                                             display: true,
                                             text: 'Fact0rn Network Hashrate',
@@ -907,84 +988,138 @@
                                                 size: 16
                                             }
                                         },
-                                        legend: {
-                                            labels: {
-                                                color: '#f8f8f8',
-                                                font: {
-                                                    family: 'Orbitron'
-                                                }
-                                            }
-                                        },
                                         tooltip: {
                                             callbacks: {
                                                 title: function(tooltipItems) {
                                                     const idx = tooltipItems[0].dataIndex;
-                                                    return `Block #${tooltipItems[0].label} - ${formattedDates[idx]}`;
+                                                    return `Block #${tooltipItems[0].label}`;
                                                 },
                                                 label: function(context) {
                                                     return `Hashrate: ${context.raw.toFixed(2)} GH/s`;
                                                 }
                                             }
-                                        },
-                                        zoom: {
-                                            pan: {
-                                                enabled: true,
-                                                mode: 'x'
-                                            },
-                                            zoom: {
-                                                wheel: {
-                                                    enabled: true,
-                                                },
-                                                pinch: {
-                                                    enabled: true
-                                                },
-                                                mode: 'x'
-                                            }
                                         }
                                     },
-                                    scales: {
-                                        x: {
-                                            title: {
-                                                display: true,
-                                                text: 'Block Number / Date',
-                                                color: '#f8f8f8',
-                                                font: {
-                                                    family: 'Orbitron'
-                                                }
-                                            },
-                                            ticks: {
-                                                color: '#f8f8f8',
-                                                maxRotation: 45,
-                                                minRotation: 45,
-                                                callback: function(value, index, values) {
-                                                    // Show fewer labels to avoid crowding
-                                                    if (index % 5 === 0) {
-                                                        const blockIndex = blockNumbers.indexOf(parseInt(this.getLabelForValue(value)));
-                                                        if (blockIndex >= 0) {
-                                                            return `${this.getLabelForValue(value)}\n${formattedDates[blockIndex]}`;
-                                                        }
-                                                        return this.getLabelForValue(value);
-                                                    }
-                                                    return '';
-                                                }
-                                            }
-                                        },
-                                        y: {
-                                            title: {
-                                                display: true,
-                                                text: 'Hashrate (GH/s)',
-                                                color: '#f8f8f8',
-                                                font: {
-                                                    family: 'Orbitron'
-                                                }
-                                            },
-                                            ticks: {
-                                                color: '#f8f8f8'
-                                            }
-                                        }
+                                    interaction: {
+                                        intersect: false,
+                                        mode: 'index'
                                     }
                                 }
                             });
+                            
+                            // Create emissions chart if data is available
+                            if (emissionsChartData.labels.length > 0) {
+                                // Check if emissions chart container exists, if not, create it
+                                if (!document.getElementById('emissionsChartContainer')) {
+                                    const container = document.createElement('div');
+                                    container.id = 'emissionsChartContainer';
+                                    container.className = 'chart-container';
+                                    container.style.height = '400px';
+                                    container.style.marginTop = '30px';
+                                    
+                                    const canvas = document.createElement('canvas');
+                                    canvas.id = 'emissionsChart';
+                                    container.appendChild(canvas);
+                                    
+                                    // Add after hashrate chart container
+                                    const hashrateContainer = document.getElementById('hashrateChart').parentElement;
+                                    hashrateContainer.parentElement.insertBefore(container, hashrateContainer.nextSibling);
+                                }
+                                
+                                const emissionsCtx = document.getElementById('emissionsChart').getContext('2d');
+                                new Chart(emissionsCtx, {
+                                    type: 'line',
+                                    data: {
+                                        labels: emissionsChartData.labels,
+                                        datasets: [
+                                            {
+                                                label: 'Block Rewards (FACT)',
+                                                data: emissionsChartData.emissions,
+                                                backgroundColor: 'rgba(255, 215, 0, 0.2)',
+                                                borderColor: 'rgba(255, 215, 0, 1)',
+                                                borderWidth: 2,
+                                                tension: 0.2
+                                            }
+                                        ]
+                                    },
+                                    options: {
+                                        responsive: true,
+                                        maintainAspectRatio: false,
+                                        scales: {
+                                            x: {
+                                                title: {
+                                                    display: true,
+                                                    text: 'Block Number',
+                                                    color: '#f8f8f8',
+                                                    font: {
+                                                        family: 'Orbitron',
+                                                        size: 14
+                                                    }
+                                                },
+                                                grid: {
+                                                    color: 'rgba(255, 255, 255, 0.1)'
+                                                },
+                                                ticks: {
+                                                    color: '#f8f8f8',
+                                                    maxTicksLimit: 10
+                                                }
+                                            },
+                                            y: {
+                                                title: {
+                                                    display: true,
+                                                    text: 'Block Reward (FACT)',
+                                                    color: '#f8f8f8',
+                                                    font: {
+                                                        family: 'Orbitron',
+                                                        size: 14
+                                                    }
+                                                },
+                                                grid: {
+                                                    color: 'rgba(255, 255, 255, 0.1)'
+                                                },
+                                                ticks: {
+                                                    color: '#f8f8f8'
+                                                }
+                                            }
+                                        },
+                                        plugins: {
+                                            legend: {
+                                                labels: {
+                                                    color: '#f8f8f8',
+                                                    font: {
+                                                        family: 'Orbitron',
+                                                        size: 12
+                                                    }
+                                                }
+                                            },
+                                            title: {
+                                                display: true,
+                                                text: 'Fact0rn Block Rewards',
+                                                color: '#f8f8f8',
+                                                font: {
+                                                    family: 'Orbitron',
+                                                    size: 16
+                                                }
+                                            },
+                                            tooltip: {
+                                                callbacks: {
+                                                    title: function(tooltipItems) {
+                                                        const idx = tooltipItems[0].dataIndex;
+                                                        return `Block #${tooltipItems[0].label}`;
+                                                    },
+                                                    label: function(context) {
+                                                        return `Reward: ${context.raw} FACT`;
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        interaction: {
+                                            intersect: false,
+                                            mode: 'index'
+                                        }
+                                    }
+                                });
+                            }
                             
                         } catch (error) {
                             console.error('Hashrate error details:', error);
