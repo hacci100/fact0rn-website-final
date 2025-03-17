@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="fact0rn.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.1/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
 
 <body>
@@ -94,16 +95,7 @@
                 </div>
             </div>
 
-            <!-- Hashrate Chart Section -->
-            <div class="chart-container" style="background: rgba(0, 0, 0, 0.6); border: 1px solid #FF9900; border-radius: 10px; padding: 1.5rem; margin: 2rem 0; box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); text-align: center;">
-                <h3 style="color: #FF9900; font-family: 'Orbitron', sans-serif; margin-bottom: 1rem;">Fact0rn Network Hashrate</h3>
-                <div id="hashrate-loading-message">Loading hashrate data...</div>
-                <div id="hashrate-error-details" style="display: none; color: #ff6b6b; background: rgba(255, 107, 107, 0.1); border: 1px solid #ff6b6b; border-radius: 5px; padding: 1rem; margin: 1rem 0;"></div>
-                <button id="hashrate-retry-button" style="display: none; background: #FF9900; color: #000; border: none; border-radius: 5px; padding: 0.75rem 1.5rem; font-weight: bold; cursor: pointer; margin: 0.5rem;">Retry</button>
-                <div style="position: relative; height: 60vh; margin-top: 1rem;">
-                    <canvas id="hashrateChart"></canvas>
-                </div>
-            </div>
+        
 
             <!-- Emissions Chart Section -->
             <div class="chart-container" style="background: rgba(0, 0, 0, 0.6); border: 1px solid #FF9900; border-radius: 10px; padding: 1.5rem; margin: 2rem 0; box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); text-align: center;">
@@ -143,6 +135,116 @@
                 <button id="emissions-retry-button" style="display: none; background: #FF9900; color: #000; border: none; border-radius: 5px; padding: 0.75rem 1.5rem; font-weight: bold; cursor: pointer; margin: 0.5rem;">Retry</button>
                 <div style="position: relative; height: 60vh; margin-top: 1rem;">
                     <canvas id="emissionsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Hashrate Chart Section -->
+            <div class="chart-container" style="background: rgba(0, 0, 0, 0.6); border: 1px solid #FF9900; border-radius: 10px; padding: 1.5rem; margin: 2rem 0; box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); text-align: center;">
+                <h3 style="color: #FF9900; font-family: 'Orbitron', sans-serif; margin-bottom: 1rem;">Fact0rn Network Hashrate</h3>
+                
+                <!-- Hashrate Controls -->
+                <div class="controls-container" style="margin-bottom: 20px; padding: 15px; background: rgba(0, 0, 0, 0.6); border: 1px solid #FF9900; border-radius: 10px;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; margin-bottom: 15px;">
+                        <div>
+                            <label for="hashrateBlockRange" style="color: #FF9900; margin-bottom: 5px; display: block;">Block Range:</label>
+                            <input type="number" id="hashrateStartBlock" placeholder="Start Block" min="1" style="background: #2a2a2a; color: #f8f8f8; border: 1px solid #444; padding: 5px; margin-right: 5px;">
+                            <span style="color: #f8f8f8;">to</span>
+                            <input type="number" id="hashrateEndBlock" placeholder="End Block" min="1" style="background: #2a2a2a; color: #f8f8f8; border: 1px solid #444; padding: 5px; margin-left: 5px;">
+                        </div>
+                        
+                        <div>
+                            <label for="hashrateDateRange" style="color: #FF9900; margin-bottom: 5px; display: block;">Date Range:</label>
+                            <input type="date" id="hashrateStartDate" style="background: #2a2a2a; color: #f8f8f8; border: 1px solid #444; padding: 5px; margin-right: 5px;">
+                            <span style="color: #f8f8f8;">to</span>
+                            <input type="date" id="hashrateEndDate" style="background: #2a2a2a; color: #f8f8f8; border: 1px solid #444; padding: 5px; margin-left: 5px;">
+                        </div>
+                        
+                        <div>
+                            <label for="hashrateLimit" style="color: #FF9900; margin-bottom: 5px; display: block;">Number of Blocks:</label>
+                            <select id="hashrateLimit" style="background: #2a2a2a; color: #f8f8f8; border: 1px solid #444; padding: 5px;">
+                                <option value="10">Last 10 Blocks</option>
+                                <option value="20">Last 20 Blocks</option>
+                                <option value="50" selected>Last 50 Blocks</option>
+                                <option value="100">Last 100 Blocks</option>
+                                <option value="200">Last 200 Blocks</option>
+                                <option value="1000">Last 1000 Blocks</option>
+                                <option value="max">All Available Data</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                        <button id="hashrateCustomRangeBtn" style="background: #FF9900; color: #000; border: none; border-radius: 5px; padding: 8px 15px; cursor: pointer;">Apply Custom Range</button>
+                        <button id="hashrateResetZoomBtn" style="background: #FF9900; color: #000; border: none; border-radius: 5px; padding: 8px 15px; cursor: pointer;">Reset Zoom</button>
+                    </div>
+                </div>
+                
+                <div id="hashrate-loading-message">Loading hashrate data...</div>
+                <div id="hashrate-error-details" style="display: none; color: #ff6b6b; background: rgba(255, 107, 107, 0.1); border: 1px solid #ff6b6b; border-radius: 5px; padding: 1rem; margin: 1rem 0;"></div>
+                <button id="hashrate-retry-button" style="display: none; background: #FF9900; color: #000; border: none; border-radius: 5px; padding: 0.75rem 1.5rem; font-weight: bold; cursor: pointer; margin: 0.5rem;">Retry</button>
+                
+                <!-- Hashrate Chart -->
+                <div style="position: relative; height: 60vh; margin-top: 1rem;">
+                    <canvas id="hashrateChart"></canvas>
+                </div>
+                <!-- Range chart container for hashrate -->
+                <div id="hashrateRangeChartContainer" style="margin-top: 20px; height: 100px;">
+                    <canvas id="hashrateRangeChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Block Reward Chart Section -->
+            <div class="chart-container" style="background: rgba(0, 0, 0, 0.6); border: 1px solid #FF9900; border-radius: 10px; padding: 1.5rem; margin: 2rem 0; box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); text-align: center;">
+                <h3 style="color: #FF9900; font-family: 'Orbitron', sans-serif; margin-bottom: 1rem;">Fact0rn Block Rewards</h3>
+                
+                <!-- Block Reward Controls -->
+                <div class="controls-container" style="margin-bottom: 20px; padding: 15px; background: rgba(0, 0, 0, 0.6); border: 1px solid #FF9900; border-radius: 10px;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; margin-bottom: 15px;">
+                        <div>
+                            <label for="rewardBlockRange" style="color: #FF9900; margin-bottom: 5px; display: block;">Block Range:</label>
+                            <input type="number" id="rewardStartBlock" placeholder="Start Block" min="1" style="background: #2a2a2a; color: #f8f8f8; border: 1px solid #444; padding: 5px; margin-right: 5px;">
+                            <span style="color: #f8f8f8;">to</span>
+                            <input type="number" id="rewardEndBlock" placeholder="End Block" min="1" style="background: #2a2a2a; color: #f8f8f8; border: 1px solid #444; padding: 5px; margin-left: 5px;">
+                        </div>
+                        
+                        <div>
+                            <label for="rewardDateRange" style="color: #FF9900; margin-bottom: 5px; display: block;">Date Range:</label>
+                            <input type="date" id="rewardStartDate" style="background: #2a2a2a; color: #f8f8f8; border: 1px solid #444; padding: 5px; margin-right: 5px;">
+                            <span style="color: #f8f8f8;">to</span>
+                            <input type="date" id="rewardEndDate" style="background: #2a2a2a; color: #f8f8f8; border: 1px solid #444; padding: 5px; margin-left: 5px;">
+                        </div>
+                        
+                        <div>
+                            <label for="rewardLimit" style="color: #FF9900; margin-bottom: 5px; display: block;">Number of Blocks:</label>
+                            <select id="rewardLimit" style="background: #2a2a2a; color: #f8f8f8; border: 1px solid #444; padding: 5px;">
+                                <option value="10">Last 10 Blocks</option>
+                                <option value="20">Last 20 Blocks</option>
+                                <option value="50" selected>Last 50 Blocks</option>
+                                <option value="100">Last 100 Blocks</option>
+                                <option value="200">Last 200 Blocks</option>
+                                <option value="1000">Last 1000 Blocks</option>
+                                <option value="max">All Available Data</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                        <button id="rewardCustomRangeBtn" style="background: #FF9900; color: #000; border: none; border-radius: 5px; padding: 8px 15px; cursor: pointer;">Apply Custom Range</button>
+                        <button id="rewardResetZoomBtn" style="background: #FF9900; color: #000; border: none; border-radius: 5px; padding: 8px 15px; cursor: pointer;">Reset Zoom</button>
+                    </div>
+                </div>
+                
+                <div id="reward-loading-message">Loading block reward data...</div>
+                <div id="reward-error-details" style="display: none; color: #ff6b6b; background: rgba(255, 107, 107, 0.1); border: 1px solid #ff6b6b; border-radius: 5px; padding: 1rem; margin: 1rem 0;"></div>
+                <button id="reward-retry-button" style="display: none; background: #FF9900; color: #000; border: none; border-radius: 5px; padding: 0.75rem 1.5rem; font-weight: bold; cursor: pointer; margin: 0.5rem;">Retry</button>
+                
+                <!-- Block Reward Chart -->
+                <div style="position: relative; height: 60vh; margin-top: 1rem;">
+                    <canvas id="rewardChart"></canvas>
+                </div>
+                <!-- Range chart container for block reward -->
+                <div id="rewardRangeChartContainer" style="margin-top: 20px; height: 100px;">
+                    <canvas id="rewardRangeChart"></canvas>
                 </div>
             </div>
 
@@ -582,41 +684,92 @@
                                     maintainAspectRatio: false,
                                     plugins: {
                                         legend: {
-                                            display: false
+                                            labels: {
+                                                color: '#f8f8f8',
+                                                font: {
+                                                    family: 'Orbitron'
+                                                }
+                                            }
                                         },
                                         tooltip: {
-                                            enabled: false
+                                            callbacks: {
+                                                title: function(tooltipItems) {
+                                                    return `Block #${tooltipItems[0].label}`;
+                                                },
+                                                label: function(context) {
+                                                    if (context.dataset.label === 'Block Duration') {
+                                                        return `Block Time: ${context.raw} seconds`;
+                                                    } else if (context.dataset.label === '100 Block MA') {
+                                                        return `100-Block Moving Avg: ${context.raw} seconds`;
+                                                    } else if (context.dataset.label === '672 Block MA') {
+                                                        return `672-Block Moving Avg: ${context.raw} seconds`;
+                                                    }
+                                                    return `${context.dataset.label}: ${context.raw}`;
+                                                },
+                                                afterLabel: function(context) {
+                                                    const blockIndex = context.dataIndex;
+                                                    const block = sortedData[blockIndex];
+                                                    return `Date: ${formatDate(block[timestampField])}`;
+                                                }
+                                            }
+                                        },
+                                        zoom: {
+                                            pan: {
+                                                enabled: true,
+                                                mode: 'x'
+                                            },
+                                            zoom: {
+                                                wheel: {
+                                                    enabled: true,
+                                                },
+                                                pinch: {
+                                                    enabled: true
+                                                },
+                                                mode: 'x'
+                                            }
                                         }
                                     },
                                     scales: {
                                         x: {
-                                            display: true,
-                                            ticks: {
+                                            title: {
                                                 display: true,
-                                                maxRotation: 0,
-                                                autoSkip: true,
+                                                text: 'Block Number',
+                                                color: '#f8f8f8',
+                                                font: {
+                                                    family: 'Orbitron'
+                                                }
+                                            },
+                                            ticks: {
+                                                color: '#f8f8f8',
+                                                maxRotation: 45,
+                                                minRotation: 45,
                                                 callback: function(value, index, values) {
-                                                    // Show only a few date labels
-                                                    if (index === 0 || index === Math.floor(sortedData.length / 2) || index === sortedData.length - 1) {
+                                                    // Show fewer labels to avoid crowding
+                                                    if (index % 5 === 0) {
                                                         const blockIndex = sortedData.findIndex(block => block[blockNumberField] === parseInt(this.getLabelForValue(value)));
                                                         if (blockIndex >= 0) {
-                                                            return formatDate(sortedData[blockIndex][timestampField]);
+                                                            return `${this.getLabelForValue(value)}\n${formatDate(sortedData[blockIndex][timestampField])}`;
                                                         }
+                                                        return this.getLabelForValue(value);
                                                     }
                                                     return '';
                                                 }
                                             },
-                                            grid: {
-                                                display: false
-                                            }
+                                            
                                         },
                                         y: {
-                                            display: false
-                                        }
-                                    },
-                                    elements: {
-                                        line: {
-                                            tension: 0
+                                            title: {
+                                                display: true,
+                                                text: 'Block Time (seconds)',
+                                                color: '#f8f8f8',
+                                                font: {
+                                                    family: 'Orbitron'
+                                                }
+                                            },
+                                            ticks: {
+                                                color: '#f8f8f8'
+                                            },
+                                          
                                         }
                                     }
                                 }
@@ -864,7 +1017,7 @@
                                     labels: dates,
                                     datasets: [
                                         {
-                                            label: 'Daily Emission (FACT)',
+                                            label: 'Daily Emissions (FACT)',
                                             data: emissions,
                                             backgroundColor: 'rgba(255, 153, 0, 0.2)',
                                             borderColor: 'rgba(255, 153, 0, 1)',
@@ -1016,382 +1169,729 @@
                         fetchEmissionsData();
                     });
                 })();
+            
             </script>
 
-            <!-- Hashrate Chart Script -->
             <script>
-                (function() {
-                    // Private variables for this script
-                    let hashrateChart = null;
-                    let hashrateData = [];
+                // Hashrate Chart Functions
+                function formatHashRate(hashrateValue) {
+                    // Convert to more readable format (H/s, KH/s, MH/s, GH/s, TH/s, PH/s, EH/s)
+                    const units = ['H/s', 'KH/s', 'MH/s', 'GH/s', 'TH/s', 'PH/s', 'EH/s'];
+                    let unitIndex = 0;
+                    let formattedValue = hashrateValue;
                     
-                    // Show error message
-                    function showHashrateError(message, details) {
-                        const errorElement = document.getElementById('hashrate-error-details');
-                        const loadingElement = document.getElementById('hashrate-loading-message');
-                        const retryButton = document.getElementById('hashrate-retry-button');
-                        
-                        loadingElement.textContent = message;
-                        
-                        if (details) {
-                            errorElement.textContent = `Error details: ${details}`;
-                            errorElement.style.display = 'block';
-                        }
-                        
-                        retryButton.style.display = 'inline-block';
+                    while (formattedValue >= 1000 && unitIndex < units.length - 1) {
+                        formattedValue /= 1000;
+                        unitIndex++;
                     }
                     
-                    // Reset UI elements
-                    function resetHashrateUI() {
-                        const errorElement = document.getElementById('hashrate-error-details');
-                        const loadingElement = document.getElementById('hashrate-loading-message');
-                        const retryButton = document.getElementById('hashrate-retry-button');
-                        
-                        loadingElement.textContent = 'Loading hashrate data...';
-                        loadingElement.style.display = 'block';
-                        errorElement.style.display = 'none';
-                        retryButton.style.display = 'none';
-                        
-                        // Destroy previous chart if it exists
-                        if (hashrateChart) {
-                            hashrateChart.destroy();
-                            hashrateChart = null;
-                        }
+                    return formattedValue.toFixed(2) + ' ' + units[unitIndex];
+                }
+                
+                function formatHashRateRaw(hashrateValue) {
+                    // Convert to more readable format without units for chart
+                    let unitIndex = 0;
+                    let formattedValue = hashrateValue;
+                    
+                    while (formattedValue >= 1000 && unitIndex < 6) { // 6 is the max index (EH/s)
+                        formattedValue /= 1000;
+                        unitIndex++;
                     }
                     
-                    // Format date for display
-                    function formatHashrateDate(dateStr) {
-                        const date = new Date(dateStr);
-                        return date.toLocaleDateString('en-US', { 
-                            year: 'numeric', 
-                            month: 'short', 
-                            day: 'numeric' 
-                        });
-                    }
+                    return {
+                        value: formattedValue.toFixed(2),
+                        unit: ['H/s', 'KH/s', 'MH/s', 'GH/s', 'TH/s', 'PH/s', 'EH/s'][unitIndex]
+                    };
+                }
+                
+                function showHashrateError(message, details) {
+                    const errorElement = document.getElementById('hashrate-error-details');
+                    const loadingElement = document.getElementById('hashrate-loading-message');
+                    const retryButton = document.getElementById('hashrate-retry-button');
+                    const chartCanvas = document.getElementById('hashrateChart').parentElement;
+                    const rangeChartCanvas = document.getElementById('hashrateRangeChartContainer');
                     
-                    // Convert hashrate to GH/s
-                    function convertToGHs(hashrate) {
-                        // Convert hashrate to GH/s (assuming input is in H/s)
-                        return hashrate / 1000000000;
-                    }
+                    loadingElement.style.display = 'none';
+                    errorElement.style.display = 'block';
+                    retryButton.style.display = 'inline-block';
+                    chartCanvas.style.display = 'none';
+                    rangeChartCanvas.style.display = 'none';
                     
-                    // Function to fetch hashrate data
-                    async function fetchHashrateData() {
-                        resetHashrateUI();
-                        
-                        try {
-                            console.log('Fetching hashrate data from API');
-                            
-                            const apiUrl = 'https://fact0rn-data-d59a93edb52f.herokuapp.com/api/all-data';
-                            
-                            const response = await fetch(apiUrl, {
-                                method: 'GET',
-                                headers: {
-                                    'Accept': 'application/json'
-                                },
-                                cache: 'no-cache'
-                            });
-                            
-                            console.log('Hashrate API response status:', response.status);
-                            
+                    errorElement.innerHTML = `<strong>Error:</strong> ${message}`;
+                    if (details) {
+                        errorElement.innerHTML += `<br><pre>${details}</pre>`;
+                    }
+                }
+                
+                function resetHashrateUI() {
+                    const errorElement = document.getElementById('hashrate-error-details');
+                    const loadingElement = document.getElementById('hashrate-loading-message');
+                    const retryButton = document.getElementById('hashrate-retry-button');
+                    const chartCanvas = document.getElementById('hashrateChart').parentElement;
+                    const rangeChartCanvas = document.getElementById('hashrateRangeChartContainer');
+                    
+                    errorElement.style.display = 'none';
+                    loadingElement.style.display = 'block';
+                    retryButton.style.display = 'none';
+                    chartCanvas.style.display = 'none';
+                    rangeChartCanvas.style.display = 'none';
+                }
+                
+                let hashrateChart = null;
+                let hashrateRangeChart = null;
+                let hashrateAllData = []; // Store all data for filtering
+                
+                function fetchHashrateData(options = {}) {
+                    resetHashrateUI();
+                    
+                    // Set default options
+                    const defaultOptions = {
+                        limit: 50,
+                        startBlock: null,
+                        endBlock: null,
+                        startDate: null,
+                        endDate: null
+                    };
+                    
+                    // Merge options with defaults
+                    const finalOptions = { ...defaultOptions, ...options };
+                    
+                    // API URL
+                    const apiUrl = 'https://fact0rn-data-d59a93edb52f.herokuapp.com/api/all-data';
+                    
+                    fetch(apiUrl)
+                        .then(response => {
                             if (!response.ok) {
-                                const errorText = await response.text();
-                                console.error('Hashrate API error response:', errorText);
-                                throw new Error(`Hashrate API responded with status ${response.status}: ${errorText}`);
+                                throw new Error(`HTTP error! Status: ${response.status}`);
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            // Store all data for future filtering
+                            hashrateAllData = [...data];
+                            
+                            // Filter data based on options
+                            let filteredData = [...data];
+                            
+                            // Filter by block range if specified
+                            if (finalOptions.startBlock && finalOptions.endBlock) {
+                                filteredData = filteredData.filter(item => 
+                                    item.block_number >= finalOptions.startBlock && 
+                                    item.block_number <= finalOptions.endBlock
+                                );
                             }
                             
-                            const text = await response.text();
-                            console.log('Hashrate response text (first 100 chars):', text.substring(0, 100));
-                            
-                            let data;
-                            try {
-                                data = JSON.parse(text);
-                            } catch (parseError) {
-                                console.error('JSON parse error:', parseError);
-                                throw new Error(`Failed to parse hashrate JSON: ${parseError.message}`);
-                            }
-                            
-                            console.log('Parsed hashrate data:', data);
-                            
-                            // Hide loading message
-                            document.getElementById('hashrate-loading-message').style.display = 'none';
-                            
-                            // Check if we have the required data (API returns an array)
-                            if (!data || !Array.isArray(data) || data.length === 0) {
-                                console.error('Invalid data structure:', data);
-                                showHashrateError('No hashrate data available.', 'API returned invalid data structure');
-                                return;
-                            }
-                            
-                            // Process all data items (up to 100 most recent entries for performance)
-                            const maxEntries = 100;
-                            const dataToProcess = data.slice(0, maxEntries);
-                            
-                            // Create data structures for the charts
-                            const hashrateChartData = {
-                                labels: [],
-                                hashrates: [],
-                                timestamps: []
-                            };
-                            
-                            const emissionsChartData = {
-                                labels: [],
-                                emissions: [],
-                                timestamps: []
-                            };
-                            
-                            // Process data in reverse order (oldest to newest)
-                            for (let i = dataToProcess.length - 1; i >= 0; i--) {
-                                const item = dataToProcess[i];
+                            // Filter by date range if specified
+                            if (finalOptions.startDate && finalOptions.endDate) {
+                                const startTimestamp = new Date(finalOptions.startDate).getTime() / 1000;
+                                const endTimestamp = new Date(finalOptions.endDate).getTime() / 1000 + 86400; // Add 1 day to include the end date
                                 
-                                if (item && typeof item.network_hashrate === 'number') {
-                                    hashrateChartData.labels.push(item.block_number);
-                                    hashrateChartData.hashrates.push(convertToGHs(item.network_hashrate));
-                                    hashrateChartData.timestamps.push(item.timestamp);
-                                }
-                                
-                                // Check if emissions data is available
-                                if (item && typeof item.block_reward === 'number') {
-                                    emissionsChartData.labels.push(item.block_number);
-                                    emissionsChartData.emissions.push(item.block_reward);
-                                    emissionsChartData.timestamps.push(item.timestamp);
-                                }
+                                filteredData = filteredData.filter(item => 
+                                    item.timestamp >= startTimestamp && 
+                                    item.timestamp <= endTimestamp
+                                );
                             }
                             
-                            // Store data
-                            hashrateData = dataToProcess.map(item => ({
-                                block_number: item.block_number,
-                                hashrate: item.network_hashrate,
-                                timestamp: item.timestamp
-                            }));
+                            // Sort by timestamp in ascending order for the chart
+                            filteredData.sort((a, b) => a.timestamp - b.timestamp);
                             
-                            // Create hashrate chart
-                            const hashrateCtx = document.getElementById('hashrateChart').getContext('2d');
-                            hashrateChart = new Chart(hashrateCtx, {
-                                type: 'line',
-                                data: {
-                                    labels: hashrateChartData.labels,
-                                    datasets: [
-                                        {
-                                            label: 'Network Hashrate (GH/s)',
-                                            data: hashrateChartData.hashrates,
-                                            backgroundColor: 'rgba(0, 255, 0, 0.2)',
-                                            borderColor: 'rgba(0, 255, 0, 1)',
-                                            borderWidth: 2,
-                                            tension: 0.2
-                                        }
-                                    ]
+                            // Limit the number of items if specified
+                            if (finalOptions.limit !== 'max') {
+                                filteredData = filteredData.slice(-parseInt(finalOptions.limit));
+                            }
+                            
+                            // Create the chart
+                            createHashrateChart(filteredData);
+                        })
+                        .catch(error => {
+                            console.error('Error fetching hashrate data:', error);
+                            showHashrateError('Failed to fetch hashrate data', error.message);
+                        });
+                }
+                
+                function createHashrateChart(data) {
+                    const loadingElement = document.getElementById('hashrate-loading-message');
+                    const chartCanvas = document.getElementById('hashrateChart').parentElement;
+                    const rangeChartCanvas = document.getElementById('hashrateRangeChartContainer');
+                    
+                    if (data.length === 0) {
+                        loadingElement.textContent = 'No data available for the selected range.';
+                        return;
+                    }
+                    
+                    // Hide loading message and show chart
+                    loadingElement.style.display = 'none';
+                    chartCanvas.style.display = 'block';
+                    rangeChartCanvas.style.display = 'block';
+                    
+                    // Format the data for the chart
+                    const labels = data.map(item => new Date(item.timestamp * 1000));
+                    const blockNumbers = data.map(item => item.block_number);
+                    
+                    // Process hashrate values to use consistent units
+                    const processedHashrates = data.map(item => formatHashRateRaw(item.network_hashrate));
+                    const commonUnit = findMostCommonUnit(processedHashrates);
+                    const hashrateValues = processedHashrates.map(item => {
+                        // Convert all values to the same unit
+                        const unitDiff = getUnitIndex(item.unit) - getUnitIndex(commonUnit);
+                        return parseFloat(item.value) * Math.pow(1000, unitDiff);
+                    });
+                    
+                    // Destroy existing chart if it exists
+                    if (hashrateChart) {
+                        hashrateChart.destroy();
+                    }
+                    if (hashrateRangeChart) {
+                        hashrateRangeChart.destroy();
+                    }
+                    
+                    // Create main chart
+                    const ctx = document.getElementById('hashrateChart').getContext('2d');
+                    hashrateChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: `Network Hashrate (${commonUnit})`,
+                                data: hashrateValues,
+                                borderColor: '#FF9900',
+                                backgroundColor: 'rgba(255, 153, 0, 0.1)',
+                                borderWidth: 2,
+                                fill: true,
+                                tension: 0.2,
+                                pointRadius: 3,
+                                pointHoverRadius: 6,
+                                pointBackgroundColor: '#FF9900'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                zoom: {
+                                    pan: {
+                                        enabled: true,
+                                        mode: 'x'
+                                    },
+                                    zoom: {
+                                        wheel: {
+                                            enabled: true,
+                                        },
+                                        pinch: {
+                                            enabled: true
+                                        },
+                                        mode: 'x'
+                                    }
                                 },
-                                options: {
-                                    responsive: true,
-                                    maintainAspectRatio: false,
-                                    scales: {
-                                        x: {
-                                            title: {
-                                                display: true,
-                                                text: 'Block Number',
-                                                color: '#f8f8f8',
-                                                font: {
-                                                    family: 'Orbitron',
-                                                    size: 14
-                                                }
-                                            },
-                                            grid: {
-                                                color: 'rgba(255, 255, 255, 0.1)'
-                                            },
-                                            ticks: {
-                                                color: '#f8f8f8',
-                                                maxTicksLimit: 10
-                                            }
+                                tooltip: {
+                                    callbacks: {
+                                        title: function(tooltipItems) {
+                                            const date = new Date(tooltipItems[0].parsed.x);
+                                            return date.toLocaleString();
                                         },
-                                        y: {
-                                            title: {
-                                                display: true,
-                                                text: 'Hashrate (GH/s)',
-                                                color: '#f8f8f8',
-                                                font: {
-                                                    family: 'Orbitron',
-                                                    size: 14
-                                                }
-                                            },
-                                            grid: {
-                                                color: 'rgba(255, 255, 255, 0.1)'
-                                            },
-                                            ticks: {
-                                                color: '#f8f8f8',
-                                                callback: function(value) {
-                                                    return value.toFixed(2);
-                                                }
-                                            }
-                                        }
-                                    },
-                                    plugins: {
-                                        legend: {
-                                            labels: {
-                                                color: '#f8f8f8',
-                                                font: {
-                                                    family: 'Orbitron',
-                                                    size: 12
-                                                }
-                                            }
-                                        },
-                                        title: {
-                                            display: true,
-                                            text: 'Fact0rn Network Hashrate',
-                                            color: '#f8f8f8',
-                                            font: {
-                                                family: 'Orbitron',
-                                                size: 16
-                                            }
-                                        },
-                                        tooltip: {
-                                            callbacks: {
-                                                title: function(tooltipItems) {
-                                                    const idx = tooltipItems[0].dataIndex;
-                                                    return `Block #${tooltipItems[0].label}`;
-                                                },
-                                                label: function(context) {
-                                                    return `Hashrate: ${context.raw.toFixed(2)} GH/s`;
-                                                }
-                                            }
-                                        }
-                                    },
-                                    interaction: {
-                                        intersect: false,
-                                        mode: 'index'
-                                    }
-                                }
-                            });
-                            
-                            // Create emissions chart if data is available
-                            if (emissionsChartData.labels.length > 0) {
-                                // Check if emissions chart container exists, if not, create it
-                                if (!document.getElementById('emissionsChartContainer')) {
-                                    const container = document.createElement('div');
-                                    container.id = 'emissionsChartContainer';
-                                    container.className = 'chart-container';
-                                    container.style.height = '400px';
-                                    container.style.marginTop = '30px';
-                                    
-                                    const canvas = document.createElement('canvas');
-                                    canvas.id = 'emissionsChart';
-                                    container.appendChild(canvas);
-                                    
-                                    // Add after hashrate chart container
-                                    const hashrateContainer = document.getElementById('hashrateChart').parentElement;
-                                    hashrateContainer.parentElement.insertBefore(container, hashrateContainer.nextSibling);
-                                }
-                                
-                                const emissionsCtx = document.getElementById('emissionsChart').getContext('2d');
-                                new Chart(emissionsCtx, {
-                                    type: 'line',
-                                    data: {
-                                        labels: emissionsChartData.labels,
-                                        datasets: [
-                                            {
-                                                label: 'Block Rewards (FACT)',
-                                                data: emissionsChartData.emissions,
-                                                backgroundColor: 'rgba(255, 215, 0, 0.2)',
-                                                borderColor: 'rgba(255, 215, 0, 1)',
-                                                borderWidth: 2,
-                                                tension: 0.2
-                                            }
-                                        ]
-                                    },
-                                    options: {
-                                        responsive: true,
-                                        maintainAspectRatio: false,
-                                        scales: {
-                                            x: {
-                                                title: {
-                                                    display: true,
-                                                    text: 'Block Number',
-                                                    color: '#f8f8f8',
-                                                    font: {
-                                                        family: 'Orbitron',
-                                                        size: 14
-                                                    }
-                                                },
-                                                grid: {
-                                                    color: 'rgba(255, 255, 255, 0.1)'
-                                                },
-                                                ticks: {
-                                                    color: '#f8f8f8',
-                                                    maxTicksLimit: 10
-                                                }
-                                            },
-                                            y: {
-                                                title: {
-                                                    display: true,
-                                                    text: 'Block Reward (FACT)',
-                                                    color: '#f8f8f8',
-                                                    font: {
-                                                        family: 'Orbitron',
-                                                        size: 14
-                                                    }
-                                                },
-                                                grid: {
-                                                    color: 'rgba(255, 255, 255, 0.1)'
-                                                },
-                                                ticks: {
-                                                    color: '#f8f8f8'
-                                                }
-                                            }
-                                        },
-                                        plugins: {
-                                            legend: {
-                                                labels: {
-                                                    color: '#f8f8f8',
-                                                    font: {
-                                                        family: 'Orbitron',
-                                                        size: 12
-                                                    }
-                                                }
-                                            },
-                                            title: {
-                                                display: true,
-                                                text: 'Fact0rn Block Rewards',
-                                                color: '#f8f8f8',
-                                                font: {
-                                                    family: 'Orbitron',
-                                                    size: 16
-                                                }
-                                            },
-                                            tooltip: {
-                                                callbacks: {
-                                                    title: function(tooltipItems) {
-                                                        const idx = tooltipItems[0].dataIndex;
-                                                        return `Block #${tooltipItems[0].label}`;
-                                                    },
-                                                    label: function(context) {
-                                                        return `Reward: ${context.raw} FACT`;
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        interaction: {
-                                            intersect: false,
-                                            mode: 'index'
+                                        afterTitle: function(tooltipItems) {
+                                            const index = tooltipItems[0].dataIndex;
+                                            return `Block: ${blockNumbers[index]}`;
                                         }
                                     }
-                                });
+                                },
+                                legend: {
+                                    labels: {
+                                        color: '#f8f8f8',
+                                        font: {
+                                            family: "'Orbitron', sans-serif",
+                                            size: 12
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    type: 'time',
+                                    time: {
+                                        unit: 'day',
+                                        displayFormats: {
+                                            day: 'MMM d, yyyy'
+                                        }
+                                    },
+                                    ticks: {
+                                        color: '#f8f8f8'
+                                    },
+                                    grid: {
+                                        color: 'rgba(255, 255, 255, 0.1)'
+                                    }
+                                },
+                                y: {
+                                    beginAtZero: false,
+                                    ticks: {
+                                        color: '#f8f8f8'
+                                    },
+                                    grid: {
+                                        color: 'rgba(255, 255, 255, 0.1)'
+                                    }
+                                }
                             }
-                            
-                        } catch (error) {
-                            console.error('Hashrate error details:', error);
-                            showHashrateError('Error loading hashrate data. Please try again later.', error.message);
+                        }
+                    });
+                    
+                    // Create range chart
+                    const rangeCtx = document.getElementById('hashrateRangeChart').getContext('2d');
+                    hashrateRangeChart = new Chart(rangeCtx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: `Network Hashrate Overview`,
+                                data: hashrateValues,
+                                borderColor: '#FF9900',
+                                backgroundColor: 'rgba(255, 153, 0, 0.3)',
+                                borderWidth: 1,
+                                fill: true,
+                                pointRadius: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                tooltip: {
+                                    enabled: false
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    type: 'time',
+                                    display: false
+                                },
+                                y: {
+                                    display: false
+                                }
+                            },
+                            interaction: {
+                                mode: 'nearest',
+                                axis: 'x',
+                                intersect: false
+                            }
+                        }
+                    });
+                }
+                
+                function findMostCommonUnit(processedHashrates) {
+                    // Count occurrences of each unit
+                    const unitCounts = {};
+                    processedHashrates.forEach(item => {
+                        unitCounts[item.unit] = (unitCounts[item.unit] || 0) + 1;
+                    });
+                    
+                    // Find the most common unit
+                    let mostCommonUnit = 'H/s';
+                    let maxCount = 0;
+                    
+                    for (const [unit, count] of Object.entries(unitCounts)) {
+                        if (count > maxCount) {
+                            mostCommonUnit = unit;
+                            maxCount = count;
                         }
                     }
                     
-                    // Event listeners
-                    document.addEventListener('DOMContentLoaded', function() {
-                        // Retry button listener
-                        document.getElementById('hashrate-retry-button').addEventListener('click', fetchHashrateData);
+                    return mostCommonUnit;
+                }
+                
+                function getUnitIndex(unit) {
+                    const units = ['H/s', 'KH/s', 'MH/s', 'GH/s', 'TH/s', 'PH/s', 'EH/s'];
+                    return units.indexOf(unit);
+                }
+                
+                function initHashrateChart() {
+                    // Add event listeners for hashrate chart controls
+                    document.getElementById('hashrateCustomRangeBtn').addEventListener('click', function() {
+                        const startBlock = document.getElementById('hashrateStartBlock').value;
+                        const endBlock = document.getElementById('hashrateEndBlock').value;
+                        const startDate = document.getElementById('hashrateStartDate').value;
+                        const endDate = document.getElementById('hashrateEndDate').value;
                         
-                        // Initial data load
+                        const options = {
+                            limit: 'max' // Use max when custom range is applied
+                        };
+                        
+                        if (startBlock && endBlock) {
+                            options.startBlock = parseInt(startBlock);
+                            options.endBlock = parseInt(endBlock);
+                        }
+                        
+                        if (startDate && endDate) {
+                            options.startDate = startDate;
+                            options.endDate = endDate;
+                        }
+                        
+                        fetchHashrateData(options);
+                    });
+                    
+                    document.getElementById('hashrateResetZoomBtn').addEventListener('click', function() {
+                        if (hashrateChart) {
+                            hashrateChart.resetZoom();
+                        }
+                    });
+                    
+                    document.getElementById('hashrateLimit').addEventListener('change', function() {
+                        const limit = this.value;
+                        fetchHashrateData({ limit });
+                    });
+                    
+                    document.getElementById('hashrate-retry-button').addEventListener('click', function() {
                         fetchHashrateData();
                     });
-                })();
+                    
+                    // Initial data fetch
+                    fetchHashrateData();
+                }
+                
+                document.addEventListener('DOMContentLoaded', function() {
+                    initHashrateChart();
+                });
+            </script>
+
+            <script>
+                // Block Reward Chart Functions
+                function showRewardError(message, details) {
+                    const errorElement = document.getElementById('reward-error-details');
+                    const loadingElement = document.getElementById('reward-loading-message');
+                    const retryButton = document.getElementById('reward-retry-button');
+                    const chartCanvas = document.getElementById('rewardChart').parentElement;
+                    const rangeChartCanvas = document.getElementById('rewardRangeChartContainer');
+                    
+                    loadingElement.style.display = 'none';
+                    errorElement.style.display = 'block';
+                    retryButton.style.display = 'inline-block';
+                    chartCanvas.style.display = 'none';
+                    rangeChartCanvas.style.display = 'none';
+                    
+                    errorElement.innerHTML = `<strong>Error:</strong> ${message}`;
+                    if (details) {
+                        errorElement.innerHTML += `<br><pre>${details}</pre>`;
+                    }
+                }
+                
+                function resetRewardUI() {
+                    const errorElement = document.getElementById('reward-error-details');
+                    const loadingElement = document.getElementById('reward-loading-message');
+                    const retryButton = document.getElementById('reward-retry-button');
+                    const chartCanvas = document.getElementById('rewardChart').parentElement;
+                    const rangeChartCanvas = document.getElementById('rewardRangeChartContainer');
+                    
+                    errorElement.style.display = 'none';
+                    loadingElement.style.display = 'block';
+                    retryButton.style.display = 'none';
+                    chartCanvas.style.display = 'none';
+                    rangeChartCanvas.style.display = 'none';
+                }
+                
+                let rewardChart = null;
+                let rewardRangeChart = null;
+                let rewardAllData = []; // Store all data for filtering
+                
+                function fetchRewardData(options = {}) {
+                    resetRewardUI();
+                    
+                    // Set default options
+                    const defaultOptions = {
+                        limit: 50,
+                        startBlock: null,
+                        endBlock: null,
+                        startDate: null,
+                        endDate: null
+                    };
+                    
+                    // Merge options with defaults
+                    const finalOptions = { ...defaultOptions, ...options };
+                    
+                    // API URL
+                    const apiUrl = 'https://fact0rn-data-d59a93edb52f.herokuapp.com/api/all-data';
+                    
+                    fetch(apiUrl)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! Status: ${response.status}`);
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            // Store all data for future filtering
+                            rewardAllData = [...data];
+                            
+                            // Filter data based on options
+                            let filteredData = [...data];
+                            
+                            // Filter by block range if specified
+                            if (finalOptions.startBlock && finalOptions.endBlock) {
+                                filteredData = filteredData.filter(item => 
+                                    item.block_number >= finalOptions.startBlock && 
+                                    item.block_number <= finalOptions.endBlock
+                                );
+                            }
+                            
+                            // Filter by date range if specified
+                            if (finalOptions.startDate && finalOptions.endDate) {
+                                const startTimestamp = new Date(finalOptions.startDate).getTime() / 1000;
+                                const endTimestamp = new Date(finalOptions.endDate).getTime() / 1000 + 86400; // Add 1 day to include the end date
+                                
+                                filteredData = filteredData.filter(item => 
+                                    item.timestamp >= startTimestamp && 
+                                    item.timestamp <= endTimestamp
+                                );
+                            }
+                            
+                            // Sort by timestamp in ascending order for the chart
+                            filteredData.sort((a, b) => a.timestamp - b.timestamp);
+                            
+                            // Limit the number of items if specified
+                            if (finalOptions.limit !== 'max') {
+                                filteredData = filteredData.slice(-parseInt(finalOptions.limit));
+                            }
+                            
+                            // Create the chart
+                            createRewardChart(filteredData);
+                        })
+                        .catch(error => {
+                            console.error('Error fetching block reward data:', error);
+                            showRewardError('Failed to fetch block reward data', error.message);
+                        });
+                }
+                
+                function createRewardChart(data) {
+                    const loadingElement = document.getElementById('reward-loading-message');
+                    const chartCanvas = document.getElementById('rewardChart').parentElement;
+                    const rangeChartCanvas = document.getElementById('rewardRangeChartContainer');
+                    
+                    if (data.length === 0) {
+                        loadingElement.textContent = 'No data available for the selected range.';
+                        return;
+                    }
+                    
+                    // Hide loading message and show chart
+                    loadingElement.style.display = 'none';
+                    chartCanvas.style.display = 'block';
+                    rangeChartCanvas.style.display = 'block';
+                    
+                    // Format the data for the chart
+                    const labels = data.map(item => new Date(item.timestamp * 1000));
+                    const blockNumbers = data.map(item => item.block_number);
+                    const rewardValues = data.map(item => item.block_reward);
+                    
+                    // Destroy existing chart if it exists
+                    if (rewardChart) {
+                        rewardChart.destroy();
+                    }
+                    if (rewardRangeChart) {
+                        rewardRangeChart.destroy();
+                    }
+                    
+                    // Create main chart
+                    const ctx = document.getElementById('rewardChart').getContext('2d');
+                    rewardChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Block Reward (FACT)',
+                                data: rewardValues,
+                                borderColor: '#FF9900',
+                                backgroundColor: 'rgba(255, 153, 0, 0.1)',
+                                borderWidth: 2,
+                                fill: true,
+                                tension: 0.2,
+                                pointRadius: 3,
+                                pointHoverRadius: 6,
+                                pointBackgroundColor: '#FF9900'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                zoom: {
+                                    pan: {
+                                        enabled: true,
+                                        mode: 'x'
+                                    },
+                                    zoom: {
+                                        wheel: {
+                                            enabled: true,
+                                        },
+                                        pinch: {
+                                            enabled: true
+                                        },
+                                        mode: 'x'
+                                    }
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        title: function(tooltipItems) {
+                                            const date = new Date(tooltipItems[0].parsed.x);
+                                            return date.toLocaleString();
+                                        },
+                                        afterTitle: function(tooltipItems) {
+                                            const index = tooltipItems[0].dataIndex;
+                                            return `Block: ${blockNumbers[index]}`;
+                                        },
+                                        label: function(context) {
+                                            return `Reward: ${context.raw.toFixed(8)} FACT`;
+                                        }
+                                    }
+                                },
+                                legend: {
+                                    labels: {
+                                        color: '#f8f8f8',
+                                        font: {
+                                            family: "'Orbitron', sans-serif",
+                                            size: 12
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    type: 'time',
+                                    time: {
+                                        unit: 'day',
+                                        displayFormats: {
+                                            day: 'MMM d, yyyy'
+                                        }
+                                    },
+                                    ticks: {
+                                        color: '#f8f8f8'
+                                    },
+                                    grid: {
+                                        color: 'rgba(255, 255, 255, 0.1)'
+                                    }
+                                },
+                                y: {
+                                    beginAtZero: false,
+                                    ticks: {
+                                        color: '#f8f8f8',
+                                        callback: function(value) {
+                                            return value.toFixed(2) + ' FACT';
+                                        }
+                                    },
+                                    grid: {
+                                        color: 'rgba(255, 255, 255, 0.1)'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    
+                    // Create range chart
+                    const rangeCtx = document.getElementById('rewardRangeChart').getContext('2d');
+                    rewardRangeChart = new Chart(rangeCtx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Block Reward Overview',
+                                data: rewardValues,
+                                borderColor: '#FF9900',
+                                backgroundColor: 'rgba(255, 153, 0, 0.3)',
+                                borderWidth: 1,
+                                fill: true,
+                                pointRadius: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                tooltip: {
+                                    enabled: false
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    type: 'time',
+                                    display: false
+                                },
+                                y: {
+                                    display: false
+                                }
+                            },
+                            interaction: {
+                                mode: 'nearest',
+                                axis: 'x',
+                                intersect: false
+                            }
+                        }
+                    });
+                }
+                
+                function initBlockRewardChart() {
+                    // Add event listeners for block reward chart controls
+                    document.getElementById('rewardCustomRangeBtn').addEventListener('click', function() {
+                        const startBlock = document.getElementById('rewardStartBlock').value;
+                        const endBlock = document.getElementById('rewardEndBlock').value;
+                        const startDate = document.getElementById('rewardStartDate').value;
+                        const endDate = document.getElementById('rewardEndDate').value;
+                        
+                        const options = {
+                            limit: 'max' // Use max when custom range is applied
+                        };
+                        
+                        if (startBlock && endBlock) {
+                            options.startBlock = parseInt(startBlock);
+                            options.endBlock = parseInt(endBlock);
+                        }
+                        
+                        if (startDate && endDate) {
+                            options.startDate = startDate;
+                            options.endDate = endDate;
+                        }
+                        
+                        fetchRewardData(options);
+                    });
+                    
+                    document.getElementById('rewardResetZoomBtn').addEventListener('click', function() {
+                        if (rewardChart) {
+                            rewardChart.resetZoom();
+                        }
+                    });
+                    
+                    document.getElementById('rewardLimit').addEventListener('change', function() {
+                        const limit = this.value;
+                        fetchRewardData({ limit });
+                    });
+                    
+                    document.getElementById('reward-retry-button').addEventListener('click', function() {
+                        fetchRewardData();
+                    });
+                    
+                    // Initial data fetch
+                    fetchRewardData();
+                }
+            </script>
+
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    initHashrateChart();
+                    initBlockRewardChart();
+                });
+            </script>
+
+            <script>
+                function copyAddress(element) {
+                    const text = element.querySelector('.address').innerText;
+                    navigator.clipboard.writeText(text);
+                    
+                    const feedback = document.querySelector('.copy-feedback');
+                    feedback.style.display = 'block';
+                    feedback.style.animation = 'none';
+                    void feedback.offsetHeight; // Trigger reflow
+                    feedback.style.animation = 'fadeOut 1.5s ease 1s forwards';
+                }
             </script>
 
             <script>
